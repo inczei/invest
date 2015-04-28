@@ -28,28 +28,44 @@
 {% endblock %}
 {% block additional_js %}
 <script>
-var urlBase='{{ path('ajax_share_prices') }}/{{ company }}';
+var urlBase='{{ path('ajax_share_prices', {'company': company}) }}';
 var url=urlBase;
 
 function afterSetExtremes(e) {
 
     var chart = $('#container').highcharts();
 
-    chart.showLoading('Loading data from server...');
-    $.getJSON(window.url+'/' + Math.round(e.min) +
-            '/' + Math.round(e.max), function (data) {
-
-            chart.addSeries(data);
-            chart.hideLoading();
-        });
+	$.ajax({
+		url: window.url+'/' + Math.round(e.min) + '/' + Math.round(e.max),
+		dataType: 'json',
+		timeout: 10000
+	})
+	.error(function(jqXHR, status, errorThrown) {
+//		$('#container').html('Data error...<br>Probably too much data.<br>Please select less...');
+	})
+	.done(function(data) {
+		chart.addSeries(data);
+	});
 }
 function pricesDraw() {
-	$.getJSON(window.url, function (data) {
+	$.ajax({
+		url: window.url,
+		dataType: 'json',
+//		data: data,
+		timeout: 10000
+	})
+	.error(function(jqXHR, status, errorThrown) {
+		$('#container').html('Data error...<br>Probably too much data.<br>Please select less...');
+	})
+	.done(function(data) {
 		$('#loadingAnim').hide();
 		$('#container').highcharts('StockChart', {
 	       chart: {
 	            animation: true
 	        },
+	        credits: {
+				enabled: false
+		    },
 			title: {
 				text: 'Stock Prices'
 			},
@@ -57,17 +73,17 @@ function pricesDraw() {
 				width: 900	
 			},
 			navigator : {
-				enabled: false,
+				enabled: true,
 				adaptToUpdatedData: false,
 				series : {
 					data : data
 				}
 			},
 			scrollbar: {
-				enabled: false,
-				liveRedraw: false
+				enabled: true,
+				liveRedraw: true
 			},
-			type: 'waterfall',
+			type: 'spline',
 			rangeSelector: {
 				selected: 1
 			},
@@ -75,6 +91,17 @@ function pricesDraw() {
 				enabled: true,
 				align: 'center',
 				verticalAlign: 'bottom'
+			},
+			loading: {
+				showDuration: 50,
+				hideDuration: 50,
+				labelStyle: {
+					color: 'white',
+					fontSize: 'large'
+				},
+				style: {
+					backgroundColor: 'gray'
+				}
 			},
 			xAxis : {
 				events : {
@@ -116,7 +143,12 @@ function pricesDraw() {
                 }],
 				inputEnabled: true,
 				selected : 2 // 1 month
-			},	
+			},
+			plotOptions: {
+				line: {
+					pointStart: Date.UTC(2014, 9, 1)
+				}
+			},
 	        series: data,
 		});
 	});

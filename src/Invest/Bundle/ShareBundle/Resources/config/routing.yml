@@ -66,4 +66,7 @@ ajax_share_currency:
 ajax_share_prices:
     path:     /ajax/prices/{company}/{min}/{max}
     defaults: { _controller: InvestShareBundle:Ajax:prices, company: '', min: 0, max: 0 }
+ajax_share_trade:
+    path:     /ajax/trade/{id}
+    defaults: { _controller: InvestShareBundle:Ajax:trade, id: '' }
     

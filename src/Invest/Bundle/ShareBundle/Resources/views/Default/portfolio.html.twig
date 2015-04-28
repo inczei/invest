@@ -100,7 +100,7 @@
 	{% set summaryISA = 0 %}
 	{% for p in portfolios %}
 		<tr>
-			<td><a href="{{ path('invest_share_trade', {'action': 'list', 'id': p.id}) }}">{{ p.name }} / {{ p.clientNumber }}</a></td>
+			<td><a href="{{ path('invest_share_trade', {'action': 'list', 'id': p.id}) }}">{{ p.name }} / {{ p.clientNumber }}</a><br><input type="button" class="graphButton" data-url="{{ path('ajax_share_trade', {'id': p.id}) }}" dName="{{ p.name }} / {{ p.clientNumber }}" value="Graph"></td>
 			<td align="center">
 				{% set ptTotal = 0 %}
 				{% set opening = '' %}

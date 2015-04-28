@@ -100,17 +100,21 @@
 {% endif %}
 {% endblock %}
 {% block additional_js %}
-<script src="http://code.highcharts.com/highcharts.js"></script>
 <script>
 $(document).ready(function(){
 	{% for k,v in graphs %}
 		{% for k1,v1 in v %}
 	$('.chart{{ k }}').highcharts({
+		credits: {
+			enabled: false
+		},
 		title: {
 			text: 'Current value for portfolio : {{ k1 }}'
 		},
 		tooltip: {
-	        pointFormat: '{series.name}: <b>£ {point.y:.2f}</b>'
+			valuePrefix: '£ ',
+			valueSuffix: '',
+			valueDecimals: 2
 	    },
 		chart: {
 			width: 800,

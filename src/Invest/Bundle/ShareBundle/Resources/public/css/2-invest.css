@@ -298,3 +298,58 @@ td.headcol {
 .updatedPrice {
 	background-color: #88ff88;
 }
+
+.graphButton {
+	margin: 5px;
+	padding: 3px;
+	border: #808080 solid 1px;
+	-moz-border-radius: 10px;
+	-webkit-border-radius: 10px;
+	border-radius: 10px;
+	-khtml-border-radius: 10px;
+	background-color: #f8f8f8;
+	color: #000000;
+	font-size: normal;
+	cursor: pointer;
+}
+
+.graphButton:hover {
+	background-color: #808080;
+	color: #ffffff;
+}
+
+.popupDiv {
+	display: none;
+	position: absolute;
+	left: 0;
+	top: 0;
+	background-color: #f0f0f0;
+	border: #808080 solid 1px;
+	-moz-border-radius: 10px;
+	-webkit-border-radius: 10px;
+	border-radius: 10px;
+	-khtml-border-radius: 10px;
+	text-align: center;
+	padding: 10px;
+	overflow: auto;
+}
+
+.closeButton {
+	position: absolute;
+	top: 0;
+	right: 0;
+	border: #808080 solid 2px;
+	-moz-border-radius: 10px;
+	-webkit-border-radius: 10px;
+	border-radius: 10px;
+	-khtml-border-radius: 10px;
+	text-align: center;
+	width: 30px;
+	height: 30px;
+	cursor: pointer;
+}
+
+.closeButton:hover {
+	background-color: #808080;
+	color: #ffffff;
+}
