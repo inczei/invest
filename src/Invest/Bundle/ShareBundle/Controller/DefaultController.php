@@ -62,6 +62,9 @@ class DefaultController extends Controller
 
 	protected $pager = 20;
 	
+	protected $updateRetry = 3;
+	
+	
 	/*
 	 * @Pdf()
 	 */	
@@ -3795,7 +3798,7 @@ class DefaultController extends Controller
 		$result = array();
 		
 		$html_host='www.lse.co.uk';
-//    	$html_host='217.158.94.230';
+    	$html_host_ip='217.158.94.230';
 		
 		$ctx = stream_context_create(
 			array(
@@ -3807,9 +3810,25 @@ class DefaultController extends Controller
 
 		if ($date != '') {
 
-			$d=strtotime($date);
+			$dates=explode('|', $date);
+			if (strpos($date, '|') !== false && count($dates) == 2) {
+// print '<br>2 dates:'.print_r($dates, true).'<br>';
+				$d=mktime(0, 0, 0, date('m', strtotime($dates[0])), date('d', strtotime($dates[0])), date('Y', strtotime($dates[0])));
+				$d2=mktime(0, 0, 0, date('m', strtotime($dates[1])), date('d', strtotime($dates[1])), date('Y', strtotime($dates[1])));
 
-			$urls[]='http://'.$html_host.'/financial-diary.asp?date='.date('j-M-Y', $d);
+				while ($d <= $d2) {
+					$s='http://'.$html_host.'/financial-diary.asp?date='.date('j-M-Y', $d);
+					$urls[]=$s;
+// print '<br>url:'.$s;
+					$d=mktime(0, 0, 0, date('m', $d), date('d', $d)+1, date('Y', $d));
+				}
+				$d=$d2;
+				
+			} else {
+				$d=strtotime($date);
+
+				$urls[]='http://'.$html_host.'/financial-diary.asp?date='.date('j-M-Y', $d);
+			}
 		
 		} else {
 
@@ -3831,14 +3850,23 @@ class DefaultController extends Controller
  */
 
 		foreach ($urls as $url) {
-// print '<hr><b>'.$url.'</b><hr>';
-			try {
- 	  			$rss_result=@file_get_contents($url, 0, $ctx);
-//   			$rss_result=file_get_contents('files/financial-diary.asp');
-   			} catch(Exception $e) {
-   				$message.='error:'.$e->getMessage();
-   				$rss_result='';
-   			}
+			$try=0;
+			$rss_result='';
+			
+			while ($try < $this->updateRetry && strpos($rss_result, 'financialDiaryTable') === false) {
+
+				try {
+	 	  			$rss_result=@file_get_contents($url, 0, $ctx);
+	   			} catch(Exception $e) {
+	   				$message.='error:'.$e->getMessage();
+	   				$rss_result='';
+	   			}
+	   			$try++;
+	   			if ($try >= $this->updateRetry && strpos($url, $html_host) !== false) {
+	   				$try=0;
+	   				$url=str_replace($html_host, $html_host_ip, $url);
+	   			}
+			}
 
 	   		$pos1=strpos($rss_result, 'class="financialDiaryTable" align="left">')+41;
 			$rss_result=substr($rss_result, $pos1, strlen($rss_result));
@@ -3915,7 +3943,7 @@ class DefaultController extends Controller
     	$list_sources=array();
     	
     	$html_host='shares.telegraph.co.uk';
-//    	$html_host='193.243.128.86';
+    	$html_host_ip='193.243.128.86';
 
     	if (!$part || $part==1) {
     		$html_sources[]='http://'.$html_host.'/indices/prices/index/UKX';
@@ -3940,6 +3968,7 @@ class DefaultController extends Controller
     	$updated_trades=0;
 		$completed=array();
 		$data1=array();
+		$new_data=array();
 
 		$em=$this->getDoctrine()->getManager();
 /*
@@ -3975,22 +4004,35 @@ class DefaultController extends Controller
 
 	    	for ($i=0; $i < $count; $i++) {
 
-	    		$rss_result=@file_get_contents($html_sources[$i], 0, $ctx);
+	    		$try=0;
+	    		unset($new_data);
+	    		$new_data=array();
+	    		
+	    		while ($try < $this->updateRetry && !count($new_data)) {
+// error_log('i:'.$i.', try:'.$try.', url:'.$html_sources[$i]);
+
+	    			$rss_result=@file_get_contents($html_sources[$i], 0, $ctx);
 /*
  * delete everything before and after the neccessary data then clear the remaining content
  */
-	    		if ($rss_result !== false) {
-		    		$pos1=strpos($rss_result, 'prices-table">')+14;
-		    		$rss_result=substr($rss_result, $pos1, strlen($rss_result));
-					$pos2=strpos($rss_result, '<tbody>')+7;
-					$rss_result=substr($rss_result, $pos2, strlen($rss_result));
-					$pos3=strpos($rss_result, '</tbody>');
-					$rss_result=substr($rss_result, 0, $pos3);
-		    		$rss_result=str_replace(chr(9), '', $rss_result);
-	    			
-		    		$new_data=explode('</tr>', $rss_result);
-	    		} else {
-	    			$new_data=null;
+		    		if ($rss_result !== false) {
+			    		$pos1=strpos($rss_result, 'prices-table">')+14;
+			    		$rss_result=substr($rss_result, $pos1, strlen($rss_result));
+						$pos2=strpos($rss_result, '<tbody>')+7;
+						$rss_result=substr($rss_result, $pos2, strlen($rss_result));
+						$pos3=strpos($rss_result, '</tbody>');
+						$rss_result=substr($rss_result, 0, $pos3);
+			    		$rss_result=str_replace(chr(9), '', $rss_result);
+		    			
+			    		$new_data=explode('</tr>', $rss_result);
+		    		} else {
+		    			$new_data=null;
+		    		}
+		    		$try++;
+		    		if ($try >= $this->updateRetry && !count($new_data) && strpos($html_sources[$i], $html_host)) {
+		    			$try=0;
+		    			$html_sources[$i]=str_replace($html_host, $html_host_ip, $html_sources[$i]);
+		    		}
 	    		}
 	    		
 				
