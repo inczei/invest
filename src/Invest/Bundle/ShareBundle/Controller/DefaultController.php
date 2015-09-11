@@ -251,7 +251,7 @@ class DefaultController extends Controller
     	$connection=$em->getConnection();
 
     	$companies=array();
-    	$tradeData=$this->getTradesData(null, null, null, 0);
+    	$tradeData=$this->getTradesData(null, null, null, 0, null, null);
 
     	if (count($tradeData)) {
    			foreach ($tradeData as $td) {
@@ -1679,7 +1679,7 @@ class DefaultController extends Controller
     	 
     	$connection=$this->getDoctrine()->getConnection();
     	
-    	$trades=$this->getTradesData(null, null, null, null);
+    	$trades=$this->getTradesData(null, null, null, null, null, null);
     	
        	if (count($trades)) {
 	   		foreach ($trades as $t) {
@@ -2036,6 +2036,8 @@ class DefaultController extends Controller
 		$searchPortfolio=0;
 		$searchSector='';
 		$searchSold=0;
+		$searchDateFrom=null;
+		$searchDateTo=null;
 		
 		$show=false;
 		$showForm=1;
@@ -2647,8 +2649,36 @@ class DefaultController extends Controller
 			if (isset($_POST['form']['sold']) && $_POST['form']['sold']) {
 				$searchSold=$_POST['form']['sold'];
 			}
-			
-			$this->getRequest()->getSession()->set('is_trade', array('c'=>$searchCompany, 'p'=>$searchPortfolio, 's'=>$searchSold, 'sc'=>$searchSector, 'updated'=>date('Y-m-d H:i:s')));
+			if (isset($_POST['form']['dateFrom'])) {
+				if (strlen($_POST['form']['dateFrom'])) {
+					$searchDateFrom=date_create_from_format('d/m/Y', $_POST['form']['dateFrom']);
+//					$searchDateFrom=new \DateTime((string)$df);
+// error_log('from:'.(is_object($searchDateFrom)?'obj':'non obj').', date:'.print_r($searchDateFrom, true));
+				} else {
+					$searchDateFrom=null;
+				}
+			}
+			if (isset($_POST['form']['dateTo'])) {
+				if (strlen($_POST['form']['dateTo'])) {
+					$searchDateTo=date_create_from_format('d/m/Y', $_POST['form']['dateTo']);
+//					$searchDateTo=$_POST['form']['dateTo'];
+// error_log('to:'.(is_object($searchDateTo)?'obj':'non obj').', date:'.print_r($searchDateTo, true));
+				} else {
+					$searchDateTo=null;
+				}
+			}
+				
+			$this->getRequest()->getSession()->set('is_trade',
+				array(
+					'c'=>$searchCompany,
+					'p'=>$searchPortfolio,
+					's'=>$searchSold,
+					'sc'=>$searchSector,
+					'df'=>$searchDateFrom,
+					'dt'=>$searchDateTo,
+					'updated'=>date('Y-m-d H:i:s'
+				)
+			));
 		} else {
 			if (null !== ($this->getRequest()->getSession()->get('is_trade'))) {
 				$data=$this->getRequest()->getSession()->get('is_trade');
@@ -2672,6 +2702,18 @@ class DefaultController extends Controller
 					if (isset($data['s'])) {
 						$searchSold=$data['s'];
 					}
+					if (isset($data['df'])) {
+//						$d=new \DateTime($data['df']);
+//						$searchDateFrom=$d->format('Y-m-d');
+						$searchDateFrom=$data['df'];
+					} else {
+						$searchDateFrom=null;
+					}
+					if (isset($data['dt'])) {
+						$searchDateTo=$data['dt'];
+					} else {
+						$searchDateTo=null;
+					}
 				} else {
 					$this->getRequest()->getSession()->remove('is_trade');
 				}
@@ -2691,6 +2733,12 @@ class DefaultController extends Controller
 			}
 			if ($searchSold) {
 				$find_array=array_merge($find_array, array('sold'=>$searchSold));
+			}
+			if ($searchDateFrom) {
+				$find_array=array_merge($find_array, array('date'=>$searchDateFrom));
+			}
+			if ($searchDateTo) {
+				$find_array=array_merge($find_array, array('date'=>$searchDateTo));
 			}
 		}
 		
@@ -2766,6 +2814,30 @@ class DefaultController extends Controller
 			    		'style'=>'width: 80px'
 			    	)
 			    ))
+			    ->add('dateFrom', 'date', array(
+			    	'widget'=>'single_text',
+			    	'label'=>'Date:',
+			    	'format'=>'dd/MM/yyyy',
+			    	'required'=>false,
+			    	'data'=>((isset($searchDateFrom))?($searchDateFrom):(null)),
+			    	'empty_value'=>null,
+			    	'attr'=>array(
+			    		'class'=>'dateInput',
+			    		'style'=>'width: 100px'
+			    	)
+			    ))
+			    ->add('dateTo', 'date', array(
+			    	'widget'=>'single_text',
+			    	'format'=>'dd/MM/yyyy',
+			    	'label'=>'To:',
+			    	'required'=>false,
+			    	'data'=>((isset($searchDateTo))?($searchDateTo):(null)),
+			    	'empty_value'=>null,
+			    	'attr'=>array(
+			    		'class'=>'dateInput',
+			    		'style'=>'width: 100px'
+			    	)
+			    ))
 			    ->add('search', 'submit')
 			    ->getForm();
 			    	
@@ -2774,8 +2846,37 @@ class DefaultController extends Controller
 			$searchFormView=$searchForm->createView();
 		}
 
-		$combined=$this->getTradesData($searchPortfolio, $searchCompany, $searchSector, $searchSold);
+		$combined=$this->getTradesData($searchPortfolio, $searchCompany, $searchSector, $searchSold, $searchDateFrom, $searchDateTo);
 
+		if (in_array($searchSold, array(1,2)) && $searchDateFrom || $searchDateTo) {
+			foreach ($combined as $k=>$v) {			
+				if ($searchSold == 2) {
+					// if sold
+					// if sold reference is there
+					// and search for from date earlier than specified
+					// or to date later than specified, unset
+					if ($v['reference2']
+						&& (($searchDateFrom && substr($v['tradeDate2'], 0, 10) < $searchDateFrom->format('Y-m-d'))
+						|| ($searchDateTo && substr($v['tradeDate2'], 0, 10) > $searchDateTo->format('Y-m-d'))))
+						{
+						unset($combined[$k]);
+					}
+					
+				} else {
+					// if unsold
+					// if bought reference is there (should be always)
+					// and search for from date earlier than specified
+					// or to date later than specified, unset
+					if ($v['reference1']
+						&& (($searchDateFrom && substr($v['tradeDate1'], 0, 10) < $searchDateFrom->format('Y-m-d'))
+						|| ($searchDateTo && substr($v['tradeDate1'], 0, 10) > $searchDateTo->format('Y-m-d'))))
+						{
+						unset($combined[$k]);
+					}
+				}
+			}
+		}
+		
 		$format = $this->get('request')->get('_format');
 		
 		switch ($format) {
@@ -3306,7 +3407,7 @@ class DefaultController extends Controller
 /*
  * query for portfolio table with calculated values
  */
-    	$trades=$this->getTradesData($searchPortfolio, null, null, null);
+    	$trades=$this->getTradesData($searchPortfolio, null, null, null, null, null);
     	$portfolios=array();
     	if (count($trades)) {
     		
@@ -5404,7 +5505,7 @@ class DefaultController extends Controller
  * calculate the "PaidDividend"
  */
 
-    			$pData=$this->getTradesData($pId, null, null, null);
+    			$pData=$this->getTradesData($pId, null, null, null, null, null);
     			
 				$data=array(
 					'CurrentDividend'=>0,
@@ -5712,7 +5813,7 @@ class DefaultController extends Controller
 	}
 	
 	
-    private function getTradesData($searchPortfolio, $searchCompany, $searchSector, $searchSold) {
+    private function getTradesData($searchPortfolio, $searchCompany, $searchSector, $searchSold, $searchDateFrom, $searchDateTo) {
 
     	$combined=array();
 		$em=$this->getDoctrine()->getManager();
@@ -5739,10 +5840,12 @@ class DefaultController extends Controller
     			(($searchSector)?(' AND `c`.`Sector`="'.$searchSector.'"'):('')).
     			(($searchCompany)?(' AND `c`.`id`="'.$searchCompany.'"'):('')).
     			(($searchPortfolio)?(' AND `p`.`id`="'.$searchPortfolio.'"'):('')).
+//    			(($searchDateFrom)?(' AND DATE(`tt`.`tradeDate`)>="'.$searchDateFrom->format('Y-m-d').'"'):('')).
+//    			(($searchDateTo)?(' AND DATE(`tt`.`tradeDate`)<="'.$searchDateTo->format('Y-m-d').'"'):('')).
 
     	' GROUP BY `tt`.`tradeId`'.
     	' ORDER BY `tt`.`tradeId`';
-
+error_log($query1);
     	$stmt=$connection->prepare($query1);
     	$stmt->execute();
     	$tmpTrades=$stmt->fetchAll();
@@ -6265,7 +6368,7 @@ class DefaultController extends Controller
     	$companies=array();
     	
     	if ($current) {
-    		$trades=$this->getTradesData(null, null, null, null);
+    		$trades=$this->getTradesData(null, null, null, null, null, null);
     	 
 	    	if (count($trades)) {
 	    		foreach ($trades as $t) {

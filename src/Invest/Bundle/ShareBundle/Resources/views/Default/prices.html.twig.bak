@@ -1,0 +1,159 @@
+{% extends 'InvestShareBundle:Default:base.html.twig' %}
+{% block content %}
+<br><br><hr>
+{% for flashMessage in app.session.flashbag.get('notice') %}
+    <span class="message">Message : <b>{{ flashMessage }}</b></span>
+{% endfor %}
+{% if message is defined and message|length %}
+<span class="message">Message : <b>{{ message }}</b></span>
+{% endif %}
+{% if selectForm is defined and selectForm|length %}
+{{ form_start(selectForm) }}
+<table>
+	<tr>
+		<td>{{ form_row(selectForm.company) }}</td>
+		<td>{{ form_row(selectForm.search) }}</td>
+	</tr>
+</table>
+{{ form_end(selectForm) }}
+<br>
+{% endif %}
+{% if data is defined and data|length %}
+{% if showData is defined and showData == true %}
+Click here to <span style="cursor: pointer; text-decoration: underline; color: #ff0000;" name="showhide" column="stockData">Show</span>  data<br>
+<span class="stockData" style="display: none">
+{% for k,v in data %}
+<h2>{{ k }}</h2>
+<table border="1">
+	<tr>
+	{% for d in v %}
+		<th>{{ d.Date|format('d/m/Y H:i') }}</th>
+	{% endfor %}
+	</tr>
+	<tr>
+	{% for d in v %}
+		<td align="right"{% if d.New is defined and d.New %} title="Calculated value"{% endif %}>{{ d.Price|number_format(2) }}{% if d.New is defined and d.New %}<span class="warning">!!!</span>{% endif %}</td>
+	{% endfor %}
+	</tr>
+	<tr>
+	{% for d in v %}
+		<td align="right"{% if d.New is defined and d.New %} title="Calculated value"{% endif %}>
+		<span style="color:
+		{% if (d.Changes != '') and (d.Changes != 0) %}
+			 	{% if d.Changes > 0 %}
+			 		blue
+			 	{% else %}
+			 		red
+			 	{% endif %}
+		{% else %}green
+		{% endif %}">{{ d.Changes|number_format(2) }}</span>{% if d.New is defined and d.New %}<span class="warning">!!!</span>{% endif %}
+		</td>
+	{% endfor %}
+	</tr>
+</table>
+{% endfor %}
+<br>
+</span><br>
+{% endif %}
+<div id="container" style="height: 600px"></div>
+<br>
+{% else %}
+No data...
+	{% if debug_message is defined and debug_message|length %}
+<pre>{{ debug_message|raw }}</pre>
+	{% endif %}
+{% endif %}
+{% endblock %}
+{% block additional_js %}
+<script>
+$(document).ready(function(){
+	$('#container').highcharts('StockChart', {
+		title: {
+			text: 'Stock Prices'
+		},
+		chart: {
+			width: 800	
+		},
+            	
+		rangeSelector: {
+			selected: 1
+		},
+
+		legend: {
+			enabled: true,
+			align: 'center',
+			verticalAlign: 'bottom'
+		},
+
+        series: [
+ 	        	{% set start1 = 0 %}
+ 	        	{% for k,v in data %}
+ 	        		{% if start1 == 0 %}{% else %},{% endif %}
+ 	        		{% set start1=start1+1 %}
+ 	            { name: '{{ k }}',
+ 	 	        id: 'data_{{ k }}',
+ 	            data: [{% spaceless %}
+ 	            	{% set start = 0 %}
+ 	        		{% for d in v %}
+ 	        			{% if start == 0 %}{% else %},{% endif %}
+ 	        			{% set start=start+1 %}
+ 	        		[Date.UTC({{ d.DateFields.Y }},
+ 	        		{{ d.DateFields.m-1 }},
+ 	        		{{ d.DateFields.d }},
+ 	        		{{ d.DateFields.H }},
+ 	        		{{ d.DateFields.i }}
+ 	        		),
+ 	        		{{ d.Price }}]
+ 	        		{% endfor %}
+ 	        	{% endspaceless %}]}
+ 	            {% if dividendData is defined and dividendData|length %}
+ 	            {% for kdd,ddv in dividendData  %}
+				,{
+					type: 'flags',
+					name: '{{ kdd }}',
+					data: [{% for dd in ddv %}
+					{
+						x: Date.UTC({{ dd.DateFields.Y }}, {{ dd.DateFields.m-1 }}, {{ dd.DateFields.d }}),
+						title: '{{ dd.Title }}'
+					},{% endfor %}],
+					shape: 'squarepin',
+					onSeries: 'data_{{ companyEPIC }}'
+				}
+				{% endfor %}
+ 	            {% endif %}
+ 	            {% if dealsData is defined and dealsData|length %}
+ 	            {% for dealK,dealV in dealsData  %}
+				,{
+					type: 'flags',
+					name: '{{ dealK }}',
+					data: [{% for dv in dealV %}
+					{
+						x: Date.UTC({{ dv.DateFields.Y }}, {{ dv.DateFields.m-1 }}, {{ dv.DateFields.d }}, 0, 0),
+						title: '{{ dv.Title }}',
+						text: '{% set lastName = '' %}{% for t in dv.Text %}{% if lastName != t.Name %}{% set lastName=t.Name %}<b>{{ t.Name }} ({{ t.Position }})</b><br>{% endif %}{{ t.Type }}, Price: {{ t.Price|number_format(2) }}p, Total: {{ t.Value|number_format(2) }}<br>{% endfor %}'
+					},{% endfor %}],
+					shape: 'circlepin'
+				}
+				{% endfor %}
+				{% endif %}
+ 	            {% if diaryData is defined and diaryData|length %}
+ 	            {% for diaryK,diaryV in diaryData  %}
+				,{
+					type: 'flags',
+					name: '{{ diaryK }}',
+					data: [{% for dv in diaryV %}
+					{
+						x: Date.UTC({{ dv.DateFields.Y }}, {{ dv.DateFields.m-1 }}, {{ dv.DateFields.d }}, 0, 30),
+						title: '{{ dv.Title }}',
+							text: '{{ dv.Text }}'
+					},{% endfor %}],
+					shape: 'circlepin'
+				}
+				{% endfor %}
+				{% endif %}
+				{% endfor %}
+ 	        ],
+	});
+});
+</script>
+{% endblock %}

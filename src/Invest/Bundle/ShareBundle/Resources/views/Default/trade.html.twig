@@ -140,11 +140,24 @@
 {{ form_start(searchForm) }}
 <table>
 	<tr>
-		<td>{{ form_row(searchForm.portfolio) }}</td>
-		<td>{{ form_row(searchForm.sector) }}</td>
-		<td>{{ form_row(searchForm.company) }}</td>
-		<td>{{ form_row(searchForm.sold) }}</td>
-		<td>{{ form_row(searchForm.search) }}</td>
+		<td>{{ form_label(searchForm.portfolio) }}{{ form_errors(searchForm.portfolio) }}</td>
+		<td>{{ form_widget(searchForm.portfolio) }}</td>
+		<td> </td>
+		<td>{{ form_label(searchForm.sector) }}{{ form_errors(searchForm.sector) }}</td>
+		<td>{{ form_widget(searchForm.sector) }}</td>
+		<td> </td>
+		<td>{{ form_label(searchForm.company) }}{{ form_errors(searchForm.company) }}</td>
+		<td>{{ form_widget(searchForm.company) }}</td>
+	</tr>
+	<tr>
+		<td>{{ form_label(searchForm.sold) }}{{ form_errors(searchForm.sold) }}</td>
+		<td>{{ form_widget(searchForm.sold) }}</td>
+		<td> </td>
+		<td>{{ form_label(searchForm.dateFrom) }}{{ form_errors(searchForm.dateFrom) }}{{ form_errors(searchForm.dateTo) }}</td>
+		<td>{{ form_widget(searchForm.dateFrom) }}-{{ form_widget(searchForm.dateTo) }}</td>
+		<td> </td>
+		<td> </td>
+		<td align="right">{{ form_widget(searchForm.search) }}</td>
 	</tr>
 </table>
 {{ form_end(searchForm) }}
