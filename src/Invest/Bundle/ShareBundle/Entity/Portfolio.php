@@ -25,7 +25,7 @@ class Portfolio
     /**
      * @var string
      *
-     * @ORM\Column(name="Name", type="string", length=255)
+     * @ORM\Column(name="Name", type="string", length=100)
      */
     private $name;
 

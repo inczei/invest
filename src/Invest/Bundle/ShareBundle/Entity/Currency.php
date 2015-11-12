@@ -3,11 +3,12 @@
 namespace Invest\Bundle\ShareBundle\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
+use Doctrine\ORM\Mapping\Index;
 
 /**
  * Currency
  *
- * @ORM\Table()
+ * @ORM\Table(indexes={@Index(name="currency_idx", columns={"Currency"})})
  * @ORM\Entity
  */
 class Currency

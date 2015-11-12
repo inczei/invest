@@ -3,13 +3,14 @@
 namespace Invest\Bundle\ShareBundle\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
+use Doctrine\ORM\Mapping\Index;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\Mapping\GeneratedValue;
 
 /**
  * PortfolioTransaction
  *
- * @ORM\Table()
+ * @ORM\Table(indexes={@Index(name="portfoliotransaction_idx", columns={"PortfolioId","Date","Reference"})})
  * @ORM\Entity
  */
 class PortfolioTransaction

@@ -3,11 +3,12 @@
 namespace Invest\Bundle\ShareBundle\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
+use Doctrine\ORM\Mapping\Index;
 
 /**
  * Config
  *
- * @ORM\Table()
+ * @ORM\Table(indexes={@Index(name="config_idx", columns={"name"})})
  * @ORM\Entity
  */
 class Config

@@ -73,12 +73,12 @@
 	{% set predictedEUR = 0 %}
 	{% set predictedUSD = 0 %}
 	{% for dkey,d in dividends %}
-		{% if d.Currency == 'GBP' %}
+		{% if d.currency == 'GBP' %}
 			{% set currency='' %}
 			{% set incomeGBP = incomeGBP + d.Income %}
 			{% set predictedGBP = predictedGBP + d.PredictedIncome %}
 		{% endif %}
-		{% if d.Currency == 'USD' %}
+		{% if d.currency == 'USD' %}
 			{% set currency='$ ' %}
 			{% set incomeUSD = incomeUSD + d.Income %}
 			{% if d.PaymentRate is defined and d.PaymentRate != 0 %}
@@ -88,7 +88,7 @@
 			{% endif %}
 			{% set predictedUSD = predictedUSD + d.PredictedIncome %}
 		{% endif %}
-		{% if d.Currency == 'EUR' %}
+		{% if d.currency == 'EUR' %}
 			{% set currency='€ ' %}
 			{% set incomeEUR = incomeEUR + d.Income %}
 			{% if d.PaymentRate is defined and d.PaymentRate != 0 %}
@@ -99,8 +99,8 @@
 			{% set predictedEUR = predictedEUR + d.PredictedIncome %}
 		{% endif %}
 		<tr{% if d.PredictedIncome > 0 %} style="background-color: {{ cycle(['#eeee88', '#ffff88'], dkey) }}"{% endif %}>
-			<td align="center"><a href="{{ path('invest_share_prices') }}/{{ d.Code }}">{{ d.Code }}</a></td>
-			<td>{{ d.Name }}</td>
+			<td align="center"><a href="{{ path('invest_share_prices') }}/{{ d.code }}">{{ d.code }}</a></td>
+			<td>{{ d.name }}</td>
 			<td>
 				{% if d.PredictedExDivDates is defined and d.PredictedExDivDates|length %}
 					{% for pedd in d.PredictedExDivDates %}
@@ -154,12 +154,12 @@
 				{% if d.PredictedQuantity is defined and d.PredictedQuantity != 0 %}
 				<div style="width: 100%; text-align: right" title="Predicted">{{ d.PredictedQuantity|number_format(2) }}</div>
 				{% else %}
-				<div style="width: 100%; text-align: right">{{ totalShares|number_format(2) }}</div>
+				<div style="width: 100%; text-align: right">{% if totalShares is defined %}{{ totalShares|number_format(2) }}{% else %}???{% endif %}</div>
 				{% endif %}
 			</td>
 			<td align="right">{{ currency }}{{ d.Dividend|number_format(3) }}</td>
-			<td align="center">{{ d.ExDivDate|date('d/m/Y') }}</td>
-			<td align="center"{% if d.TaxYear is defined %} title="Tax Year : {{ d.TaxYear }}"{% endif %}>{{ d.PaymentDate|date('d/m/Y') }}</td>
+			<td align="center">{{ d.exDivDate|date('d/m/Y') }}</td>
+			<td align="center"{% if d.TaxYear is defined %} title="Tax Year : {{ d.TaxYear }}"{% endif %}>{{ d.paymentDate|date('d/m/Y') }}</td>
 			<td align="right">{{ d.SharePrice|number_format(2) }}</td>
 			<td align="right">{{ d.CurrentYield|number_format(2) }} %</td>
 			<td align="right">{{ d.PurchasePrice|number_format(2) }}</td>
@@ -174,17 +174,17 @@
 					{% if d.PaymentRate is defined and d.PaymentRate != 0 %}
 						<br><i>(£&nbsp;{{ (d.Income/d.PaymentRate)|number_format(2) }})</i>
 					{% else %}
-						{% if d.Currency == 'EUR' %}
+						{% if d.currency == 'EUR' %}
 						<br><i>(£&nbsp;{{ (d.Income/currencyRates.EUR)|number_format(2) }})</i>
 						{% endif %}
-						{% if d.Currency == 'USD' %}
+						{% if d.currency == 'USD' %}
 						<br><i>(£&nbsp;{{ (d.Income/currencyRates.USD)|number_format(2) }})</i>
 						{% endif %}
 					{% endif %}
 				{% endif %}
 			</td>
 			<td align="right"{% if d.PredictedQuantity is defined and d.PredictedQuantity|length %} title="Currently Hold : {{ d.PredictedQuantity|number_format(2) }}"{% endif %}>{% if d.PredictedIncome != 0 %}{{ currency }}{{ d.PredictedIncome|number_format(2) }}{% endif %}</td>
-			<td>{{ d.Sector }}</td>
+			<td>{{ d.sector }}</td>
 		</tr>
 	{% endfor %}
 		<tr>

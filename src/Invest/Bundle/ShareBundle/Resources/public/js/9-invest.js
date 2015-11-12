@@ -14,6 +14,7 @@ jQuery.fn.center = function () {
 }
 
 $(document).ready(function(){
+	
 	$('body').delegate('input[class=dateInput]', 'focus', function() {
 		$(this).datepicker({dateFormat: 'dd/mm/yy'});
 	});
@@ -52,15 +53,9 @@ $(document).ready(function(){
 			alert('ajax error');
 		})
 		.done(function(data) {
-			$('#popupDiv')
-				.html('<input type="button" class="closeButton" value="X">'+'<div id="container" style="height: '+(Math.round($(window).height()*0.7))+'px; width: '+(Math.round($(window).width()*0.7))+'px"></div>')
-				.css('width', Math.round($(window).width()*0.8))
-				.css('height', Math.round($(window).height()*0.8))
-				.center()
-				.fadeIn(250);
+			$('<div id="chart"></div>').appendTo('body');
 //
-			
-			$('#container').highcharts('StockChart', {
+			$('#chart').highcharts('StockChart', {
 			        credits: {
 						enabled: false
 				    },
@@ -69,14 +64,11 @@ $(document).ready(function(){
 					},
 					chart: {
 						animation: true,
-						width: 900 // (Math.round($(window).width()*0.7))
+						width: 900
 					},
 					navigator : {
 						enabled: true,
 						adaptToUpdatedData: false,
-						series : {
-							data : data
-						}
 					},
 					scrollbar: {
 						enabled: true,
@@ -137,10 +129,23 @@ $(document).ready(function(){
 							pointStart: Date.UTC(2014, 1, 1)
 						}
 					},
-			        series: data,
+			        series: data
 				});
-			
 //			
+	    	$('<div></div>').html('<div id="container">'+$('#chart').html()+'</div>')
+	    		.dialog({
+		    		modal: true,
+		    		title: 'Portfolio : '+dName,
+		    		zIndex: 2000,
+		    		autoOpen: true,
+		    		width: 'auto',
+		    		position: 'top',
+		    		resizable: true,
+		    		close: function (event, ui) {
+		    			$(this).remove();
+		    		}
+		    	});
+	    	$('#chart').remove();
 		});
 	});
 	

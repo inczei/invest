@@ -3,11 +3,12 @@
 namespace Invest\Bundle\ShareBundle\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
+use Doctrine\ORM\Mapping\Index;
 
 /**
  * Dividend
  *
- * @ORM\Table()
+ * @ORM\Table(indexes={@Index(name="dividend_idx", columns={"CompanyId","ExDivDate","PaymentDate","DeclDate","Special","PaymentRate"})})
  * @ORM\Entity
  */
 class Dividend

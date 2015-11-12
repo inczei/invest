@@ -11,17 +11,19 @@
 $(function() {
 	$.getJSON('{{ path('ajax_share_currency', {'currency': currency}) }}', function (data) {
 		$('#container').highcharts('StockChart', {
-			title: {
+			credits: {
+				enabled: false
+		    },
+		    title: {
 				text: 'Currency Prices'
 			},
 			chart: {
-				width: 800	
+				animation: true,
+				width: 800
 			},
-	            	
 			rangeSelector: {
 				selected: 1
 			},
-	
 			legend: {
 				enabled: true,
 				align: 'center',

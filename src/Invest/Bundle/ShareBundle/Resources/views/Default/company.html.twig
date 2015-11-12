@@ -109,10 +109,10 @@
 	<tr>
 		<td align="center"><a href="{{ path('invest_share_prices', {'company': d.CompanyCode}) }}">{{ d.CompanyCode }}</a></td>
 		<td>{{ d.CompanyName }}</td>
-		<td align="center">{% if d.DeclDate|date('Y') > 0 %}{{ d.DeclDate|date("d/m/Y") }}{% endif %}</td>
-		<td align="center">{{ d.ExDivDate|date("d/m/Y") }}</td>
-		<td align="right"{% if d.PaymentRate != null and d.PaymentRate != 0 %} title="Exchange Rate : {{ d.PaymentRate|number_format(2) }}"{% endif %}>{% if d.Currency != 'GBP' %}{% if d.Currency == 'USD' %}${% endif %}{% if d.Currency == 'EUR' %}€{% endif %} {% endif %}{{ d.Amount|number_format(3) }}</td>
-		<td align="center">{% if d.PaymentDate != null %}{{ d.PaymentDate|date("d/m/Y") }}{% endif %}</td>
+		<td align="center">{% if d.declDate|date('Y') > 0 %}{{ d.declDate|date("d/m/Y") }}{% endif %}</td>
+		<td align="center">{{ d.exDivDate|date("d/m/Y") }}</td>
+		<td align="right"{% if d.paymentRate != null and d.paymentRate != 0 %} title="Exchange Rate : {{ d.PaymentRate|number_format(2) }}"{% endif %}>{% if d.Currency != 'GBP' %}{% if d.Currency == 'USD' %}${% endif %}{% if d.Currency == 'EUR' %}€{% endif %} {% endif %}{{ d.amount|number_format(3) }}</td>
+		<td align="center">{% if d.paymentDate != null %}{{ d.paymentDate|date("d/m/Y") }}{% endif %}</td>
 		<td align="center">{{ d.TaxYear }}</td>
 	</tr>
 {% endfor %}
@@ -176,10 +176,10 @@
 							{% set lastYear = d.TaxYear %}
 						{% endif %}
 								<tr{% if d.warning is defined and d.warning > 0 %} style="background-color: #ff8080" title="ExDividend Date within 1 week"{% endif %}>
-									<td align="center"{% if d.Predicted is defined and d.Predicted > 0 %} style="background-color: #ffff88;"{% endif %}{% if d.Special is defined and d.Special %} style="background-color: #88ffff;"{% endif %}>{% if d.Predicted is defined and d.Predicted > 0 %}Predicted{% else %}{% if d.DeclDate != null and d.DeclDate|date('Y') > 0 %}{{ d.DeclDate|date("d/m/Y") }}{% endif %}{% endif %}</td>
-									<td align="center"{% if d.Predicted is defined and d.Predicted > 0 %} style="background-color: #ffff88;"{% endif %}{% if d.Special is defined and d.Special %} style="background-color: #88ffff;"{% endif %}>{{ d.ExDivDate|date("d/m/Y") }}{% if d.Special is defined and d.Special %} *{% endif %}</td>
-									<td align="right"{% if d.Predicted is defined and d.Predicted > 0 %} style="background-color: #ffff88;"{% endif %}{% if d.Special is defined and d.Special %} style="background-color: #88ffff;"{% endif %}{% if d.PaymentRate != null and d.PaymentRate != 0 %} title="Rate : {{ d.PaymentRate|number_format(2) }}"{% endif %}>{% if c.Currency != 'GBP' %}{% if c.Currency == 'USD' %}${% endif %}{% if c.Currency == 'EUR' %}€{% endif %} {% endif %}{{ d.Amount|number_format(3) }}</td>
-									<td align="center"{% if d.Predicted is defined and d.Predicted > 0 %} style="background-color: #ffff88;"{% endif %}{% if d.Special is defined and d.Special %} style="background-color: #88ffff;"{% endif %}>{% if d.PaymentDate != null %}{{ d.PaymentDate|date("d/m/Y") }}{% endif %}</td>
+									<td align="center"{% if d.Predicted is defined and d.Predicted > 0 %} style="background-color: #ffff88;"{% endif %}{% if d.Special is defined and d.Special %} style="background-color: #88ffff;"{% endif %}>{% if d.Predicted is defined and d.Predicted > 0 %}Predicted{% else %}{% if d.declDate != null and d.declDate|date('Y') > 0 %}{{ d.declDate|date("d/m/Y") }}{% endif %}{% endif %}</td>
+									<td align="center"{% if d.Predicted is defined and d.Predicted > 0 %} style="background-color: #ffff88;"{% endif %}{% if d.Special is defined and d.Special %} style="background-color: #88ffff;"{% endif %}>{{ d.exDivDate|date("d/m/Y") }}{% if d.special is defined and d.special %} *{% endif %}</td>
+									<td align="right"{% if d.Predicted is defined and d.Predicted > 0 %} style="background-color: #ffff88;"{% endif %}{% if d.Special is defined and d.Special %} style="background-color: #88ffff;"{% endif %}{% if d.paymentRate != null and d.paymentRate != 0 %} title="Rate : {{ d.paymentRate|number_format(2) }}"{% endif %}>{% if c.Currency != 'GBP' %}{% if c.Currency == 'USD' %}${% endif %}{% if c.Currency == 'EUR' %}€{% endif %} {% endif %}{{ d.amount|number_format(3) }}</td>
+									<td align="center"{% if d.Predicted is defined and d.Predicted > 0 %} style="background-color: #ffff88;"{% endif %}{% if d.Special is defined and d.Special %} style="background-color: #88ffff;"{% endif %}>{% if d.paymentDate != null %}{{ d.paymentDate|date("d/m/Y") }}{% endif %}</td>
 									<td align="center"{% if d.Predicted is defined and d.Predicted > 0 %} style="background-color: #ffff88;"{% endif %}{% if d.Special is defined and d.Special %} style="background-color: #88ffff;"{% endif %}>{% if d.Predicted is defined and d.Predicted > 0 %}{% else %}<a href="{{ path('invest_share_company', {'action': 'editdividend', 'id': c.id, 'additional': d.id}) }}" title="Edit dividend">E</a> | <a href="{{ path('invest_share_company', {'action': 'deletedividend', 'id': c.id, 'additional': d.id}) }}" title="Delete dividend" question="Would you like to delete?">X</a>{% endif %}</td>
 								</tr>
 					{% endfor %}
@@ -206,13 +206,13 @@
 					</tr>
 					{% for dd in deals[c.Code] %}
 					<tr>
-						<td align="center">{{ dd.DealDate|date('d/m/Y') }}</td>
-						<td align="center">{{ dd.Type }}</td>
-						<td>{{ dd.Name }}</td>
-						<td>{{ dd.Position }}</td>
-						<td align="right">{{ dd.Shares|number_format(2) }}</td>
-						<td align="right">{{ dd.Price|number_format(2) }}</td>
-						<td align="right">{{ dd.Value|number_format(2) }}</td>
+						<td align="center">{{ dd.dealDate|date('d/m/Y') }}</td>
+						<td align="center">{{ dd.type }}</td>
+						<td>{{ dd.name }}</td>
+						<td>{{ dd.position }}</td>
+						<td align="right">{{ dd.shares|number_format(2) }}</td>
+						<td align="right">{{ dd.price|number_format(2) }}</td>
+						<td align="right">{{ dd.value|number_format(2) }}</td>
 					</tr>
 					{% endfor %}
 				</table>

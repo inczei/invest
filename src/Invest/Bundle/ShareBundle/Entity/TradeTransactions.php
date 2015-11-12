@@ -3,11 +3,12 @@
 namespace Invest\Bundle\ShareBundle\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
+use Doctrine\ORM\Mapping\Index;
 
 /**
  * TradeTransactions
  *
- * @ORM\Table()
+ * @ORM\Table(indexes={@Index(name="tradetransactions_idx", columns={"tradeId","type","settleDate","tradeDate","reference"})})
  * @ORM\Entity
  */
 class TradeTransactions

@@ -3,11 +3,12 @@
 namespace Invest\Bundle\ShareBundle\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
+use Doctrine\ORM\Mapping\Index;
 
 /**
  * Company
  *
- * @ORM\Table()
+ * @ORM\Table(indexes={@Index(name="company_idx", columns={"Name","List","Sector"})})
  * @ORM\Entity
  */
 class Company
@@ -45,7 +46,7 @@ class Company
     /**
      * @var string
      *
-     * @ORM\Column(name="Code", type="string", length=8, unique=true)
+     * @ORM\Column(name="Code", type="string", length=4, unique=true)
      */
     private $code;
 

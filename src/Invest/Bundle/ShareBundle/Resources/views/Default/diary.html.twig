@@ -36,10 +36,10 @@
 		</tr>
 	{% for d in diary %}
 		<tr>
-			<td align="center">{{ d.Date|date('d/m/Y') }}</td>
-			<td>{{ d.Type }}</td>
-			<td align="center"><a href="{{ path('invest_share_prices') }}/{{ d.Code }}">{{ d.Code }}</a></td>
-			<td>{{ d.Name }}</td>
+			<td align="center">{{ d.date|date('d/m/Y') }}</td>
+			<td>{{ d.type }}</td>
+			<td align="center"><a href="{{ path('invest_share_prices') }}/{{ d.code }}">{{ d.code }}</a></td>
+			<td>{{ d.name }}</td>
 			<td align="right">{% if d.CurrentValue != 0 %}{{ d.CurrentValue|number_format(2) }}{% else %}-{% endif %}</td>
 		</tr>
 	{% endfor %}

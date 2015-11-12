@@ -3,11 +3,12 @@
 namespace Invest\Bundle\ShareBundle\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
+use Doctrine\ORM\Mapping\Index;
 
 /**
  * DirectorsDeals
  *
- * @ORM\Table()
+ * @ORM\Table(indexes={@Index(name="directorsdeals_idx", columns={"Code","Name","DeclDate","DealDate","Type","Position"})})
  * @ORM\Entity
  */
 class DirectorsDeals
@@ -24,14 +25,14 @@ class DirectorsDeals
     /**
      * @var string
      *
-     * @ORM\Column(name="Code", type="string", length=8)
+     * @ORM\Column(name="Code", type="string", length=4)
      */
     private $code;
 
     /**
      * @var string
      *
-     * @ORM\Column(name="Name", type="string", length=255)
+     * @ORM\Column(name="Name", type="string", length=100)
      */
     private $name;
 

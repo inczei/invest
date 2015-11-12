@@ -48,16 +48,16 @@
 		</tr>
 	{% for d in deals %}
 		<tr>
-			<td align="center">{{ d.DeclDate|date('d/m/Y') }}</td>
-			<td align="center">{{ d.DealDate|date('d/m/Y') }}</td>
-			<td>{{ d.Type }}</td>
-			<td align="center"><a href="{{ path('invest_share_prices') }}/{{ d.Code }}">{{ d.Code }}</a></td>
+			<td align="center">{{ d.declDate|date('d/m/Y') }}</td>
+			<td align="center">{{ d.dealDate|date('d/m/Y') }}</td>
+			<td>{{ d.type }}</td>
+			<td align="center"><a href="{{ path('invest_share_prices') }}/{{ d.code }}">{{ d.code }}</a></td>
 			<td>{{ d.Company }}</td>
-			<td>{{ d.Name }}</td>
-			<td align="center">{{ d.Position }}</td>
-			<td align="right">{{ d.Shares|number_format(2) }}</td>
-			<td align="right">{{ d.Price|number_format(2) }}</td>
-			<td align="right">{{ d.Value|number_format(2) }}</td>
+			<td>{{ d.name }}</td>
+			<td align="center">{{ d.position }}</td>
+			<td align="right">{{ d.shares|number_format(2) }}</td>
+			<td align="right">{{ d.price|number_format(2) }}</td>
+			<td align="right">{{ d.value|number_format(2) }}</td>
 			{% if extra is defined and extra == true %}
 			<td></td>
 			<td align="right">{{ d.CurrentShares|number_format(2) }}</td>
@@ -66,6 +66,7 @@
 		</tr>
 	{% endfor %}
 	</table>
+	{% if summary is defined and summary|length %}
 	<hr>
 	<table>
 		<tr>
@@ -81,6 +82,7 @@
 		</tr>
 		{% endfor %}
 	</table>
+	{% endif %}
 </div>
 {% else %}
 No new director's deal...
