@@ -12,29 +12,17 @@
 namespace Invest\Bundle\ShareBundle\Controller;
 
 use Symfony\Bundle\FrameworkBundle\Controller\Controller;
-use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Request;
-use Invest\Bundle\ShareBundle\Entity\Config;
 use Invest\Bundle\ShareBundle\Entity\Company;
 use Invest\Bundle\ShareBundle\Entity\Diary;
 use Invest\Bundle\ShareBundle\Entity\Trade;
-use Invest\Bundle\ShareBundle\Entity\TradeTransactions;
-use Invest\Bundle\ShareBundle\Entity\DirectorsDeals;
 use Invest\Bundle\ShareBundle\Entity\Dividend;
 use Invest\Bundle\ShareBundle\Entity\Portfolio;
 use Invest\Bundle\ShareBundle\Entity\PortfolioTransaction;
-use Invest\Bundle\ShareBundle\Entity\Transaction;
 use Invest\Bundle\ShareBundle\Entity\StockPrices;
-use Invest\Bundle\ShareBundle\Entity\StockPricesWrong;
-use Invest\Bundle\ShareBundle\Entity\Summary;
 use Invest\Bundle\ShareBundle\Entity\Currency;
-use Symfony\Component\Validator\Validator;
 use Invest\Bundle\ShareBundle\InvestShareBundle;
-// use Symfony\Component\BrowserKit\Response;
-use Symfony\Component\Serializer\Encoder\JsonEncode;
 use Symfony\Component\HttpFoundation\JsonResponse;
-use Ps\PdfBundle\Annotation\Pdf;
-use Symfony\Component\HttpFoundation\Symfony\Component\HttpFoundation;
 
 class AjaxController extends Controller
 {
@@ -342,8 +330,6 @@ class AjaxController extends Controller
 							'name'=>'Trades',
 							'id'=>'data_'.$i,
 							'type'=>'line',
-//							'gapsize'=>5,
-//							'treshold'=>'null',
 							'tooltip'=>array('valueDecimals'=>2),
 							'data'=>array()
 						);

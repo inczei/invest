@@ -154,12 +154,12 @@
 				{% if d.PredictedQuantity is defined and d.PredictedQuantity != 0 %}
 				<div style="width: 100%; text-align: right" title="Predicted">{{ d.PredictedQuantity|number_format(2) }}</div>
 				{% else %}
-				<div style="width: 100%; text-align: right">{% if totalShares is defined %}{{ totalShares|number_format(2) }}{% else %}???{% endif %}</div>
+				<div style="width: 100%; text-align: right">{% if totalShares is defined %}{{ totalShares|number_format(2) }}{% else %} - {% endif %}</div>
 				{% endif %}
 			</td>
 			<td align="right">{{ currency }}{{ d.Dividend|number_format(3) }}</td>
 			<td align="center">{{ d.exDivDate|date('d/m/Y') }}</td>
-			<td align="center"{% if d.TaxYear is defined %} title="Tax Year : {{ d.TaxYear }}"{% endif %}>{{ d.paymentDate|date('d/m/Y') }}</td>
+			<td align="center"{% if d.TaxYear is defined %} title="Tax Year : {{ d.TaxYear }}"{% endif %}>{% if d.paymentDate|date('Y')>1970 %}{{ d.paymentDate|date('d/m/Y') }}{% else %} - {% endif %}</td>
 			<td align="right">{{ d.SharePrice|number_format(2) }}</td>
 			<td align="right">{{ d.CurrentYield|number_format(2) }} %</td>
 			<td align="right">{{ d.PurchasePrice|number_format(2) }}</td>

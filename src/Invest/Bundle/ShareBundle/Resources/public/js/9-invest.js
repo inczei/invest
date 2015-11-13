@@ -53,9 +53,22 @@ $(document).ready(function(){
 			alert('ajax error');
 		})
 		.done(function(data) {
-			$('<div id="chart"></div>').appendTo('body');
 //
-			$('#chart').highcharts('StockChart', {
+	    	$('<div></div>').html('<div id="chartContainer"></div>')
+    		.dialog({
+	    		modal: true,
+	    		title: 'Portfolio : '+dName,
+	    		zIndex: 2000,
+	    		autoOpen: true,
+	    		width: '920',
+	    		position: 'top',
+	    		resizable: true,
+	    		close: function (event, ui) {
+	    			$(this).remove();
+	    		}
+	    	});
+
+	    	var tmp=new Highcharts.StockChart({
 			        credits: {
 						enabled: false
 				    },
@@ -64,7 +77,8 @@ $(document).ready(function(){
 					},
 					chart: {
 						animation: true,
-						width: 900
+						width: 900,
+						renderTo: 'chartContainer'
 					},
 					navigator : {
 						enabled: true,
@@ -132,20 +146,6 @@ $(document).ready(function(){
 			        series: data
 				});
 //			
-	    	$('<div></div>').html('<div id="container">'+$('#chart').html()+'</div>')
-	    		.dialog({
-		    		modal: true,
-		    		title: 'Portfolio : '+dName,
-		    		zIndex: 2000,
-		    		autoOpen: true,
-		    		width: 'auto',
-		    		position: 'top',
-		    		resizable: true,
-		    		close: function (event, ui) {
-		    			$(this).remove();
-		    		}
-		    	});
-	    	$('#chart').remove();
 		});
 	});
 	

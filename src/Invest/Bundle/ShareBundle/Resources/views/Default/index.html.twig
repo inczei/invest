@@ -28,30 +28,30 @@
 	{% set o6=0 %}{% set o7=0 %}{% set o8=0 %}{% set o9=0 %}{% set o10=0 %}
 	{% set o11=0 %}{% set o12=0 %}{% set o13=0 %}{% set o14=0 %}
 	{% for s in summary %}
-		{% set o1=o1+s.CurrentDividend %}
-		{% set o2=o2+s.Investment %}
-		{% set o3=o3+s.CurrentValue %}
-		{% set o4=o4+s.Profit %}
-		{% set o5=o5+s.RealisedProfit %}
-		{% set o6=o6+s.UnusedCgtAllowance %}
-		{% set o7=o7+s.UnusedBasicRateBand %}
-		{% set o14=o14+s.DividendPaid %}
+		{% set o1=o1+s.currentDividend %}
+		{% set o2=o2+s.investment %}
+		{% set o3=o3+s.currentValue %}
+		{% set o4=o4+s.profit %}
+		{% set o5=o5+s.realisedProfit %}
+		{% set o6=o6+s.unusedCgtAllowance %}
+		{% set o7=o7+s.unusedBasicRateBand %}
+		{% set o14=o14+s.dividendPaid %}
 		<tr>
 			<td class="headcol"><a href="{{ path('invest_share_portfolio', {'action': 'list', 'id': s.portfolioId}) }}">{{ portfolios[s.portfolioId] }}</a></td>
-			<td align="right">{{ s.CurrentDividend|number_format(2) }}</td>
-			<td align="right">{{ s.Investment|number_format(2) }}</td>
-			<td align="right">{{ s.CurrentValue|number_format(2) }}</td>
-			<td align="right">{{ s.Profit|number_format(2) }}</td>
-			<td align="right">{{ s.DividendPaid|number_format(2) }}</td>
-			<td align="right" class="lightgreenbg">{{ s.RealisedProfit|number_format(2) }}</td>
-			<td align="right">{{ (s.DividendYield*100)|number_format(2) }} %</td>
-			<td align="right" class="lightgreenbg">{{ (s.CurrentROI*100)|number_format(2) }} %</td>
-			<td align="right">{{ s.CashIn|number_format(2) }}</td>
-			<td align="right">{{ s.UnusedCash|number_format(2) }}</td>
-			<td align="right" class="taxcentrebg">{{ s.ActualDividendIncome|number_format(2) }}</td>
-			<td align="right" class="taxcentrebg">{{ s.CgtProfitsRealised|number_format(2) }}</td>
-			<td align="right" class="taxcentrebg" title="family size : {{ s.Family }}">{{ s.UnusedCgtAllowance|number_format(2) }}</td>
-			<td align="right" class="taxcentrebg" title="family size : {{ s.Family }}">{{ s.UnusedBasicRateBand|number_format(2) }}</td>
+			<td align="right">{{ s.currentDividend|number_format(2) }}</td>
+			<td align="right">{{ s.investment|number_format(2) }}</td>
+			<td align="right">{{ s.currentValue|number_format(2) }}</td>
+			<td align="right">{{ s.profit|number_format(2) }}</td>
+			<td align="right">{{ s.dividendPaid|number_format(2) }}</td>
+			<td align="right" class="lightgreenbg">{{ s.realisedProfit|number_format(2) }}</td>
+			<td align="right">{{ (s.dividendYield*100)|number_format(2) }} %</td>
+			<td align="right" class="lightgreenbg">{{ (s.currentROI*100)|number_format(2) }} %</td>
+			<td align="right">{{ s.cashIn|number_format(2) }}</td>
+			<td align="right">{{ s.unusedCash|number_format(2) }}</td>
+			<td align="right" class="taxcentrebg">{{ s.actualDividendIncome|number_format(2) }}</td>
+			<td align="right" class="taxcentrebg">{{ s.cgtProfitsRealised|number_format(2) }}</td>
+			<td align="right" class="taxcentrebg" title="family size : {{ s.family }}">{{ s.unusedCgtAllowance|number_format(2) }}</td>
+			<td align="right" class="taxcentrebg" title="family size : {{ s.family }}">{{ s.unusedBasicRateBand|number_format(2) }}</td>
 		</tr>
 	{% endfor %}	
 		<tr>

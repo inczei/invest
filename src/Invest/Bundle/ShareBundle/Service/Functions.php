@@ -26,7 +26,6 @@ use Invest\Bundle\ShareBundle\Entity\Summary;
 use Invest\Bundle\ShareBundle\Entity\Currency;
 use Symfony\Component\Validator\Validator;
 use Invest\Bundle\ShareBundle\InvestShareBundle;
-// use Symfony\Component\BrowserKit\Response;
 use Symfony\Component\Serializer\Encoder\JsonEncode;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Ps\PdfBundle\Annotation\Pdf;
@@ -57,15 +56,6 @@ class Functions extends ContainerAware
 	protected $pager = 20;
 	
 
-    
-    
-/*
- * Private functions
- * - usort functions
- * - align data
- * - get data
- */
-    
 	public function __construct($doctrine) {
 		$this->doctrine = $doctrine; 
 		$this->em = $doctrine->getManager();
@@ -382,7 +372,7 @@ class Functions extends ContainerAware
 									$combined[$k]['noOfDaysInvested']=$days;
 									$usedSellTrades[]=$st['reference'];
 
-									$st['tradeDate']->add($st['tradeDate']->diff($c['tradeDate1'])); //-=$c['tradeDate1'];
+									$st['tradeDate']->add($st['tradeDate']->diff($c['tradeDate1']));
 
 								} else {
 
@@ -401,7 +391,7 @@ class Functions extends ContainerAware
 									$combined[$k]['unitPrice2']=$st['unitPrice'];
 									$combined[$k]['cost2']=$st['cost'];
 									$st['quantity']-=$quantity[$st['tradeId']];
-// decrease the summary of the quantity to remove all the remainig amount and duplicates
+									// decrease the summary of the quantity to remove all the remainig amount and duplicates
 									$tmpSellTrades[$i]['quantity']-=$quantity[$st['tradeId']];
 									
 									$quantity[$st['tradeId']]-=$c['quantity1'];
@@ -410,7 +400,7 @@ class Functions extends ContainerAware
 									
 									$combined[$k]['noOfDaysInvested']=$days;
 									$usedSellTrades[]=$st['reference'];
-									$st['tradeDate']->add($st['tradeDate']->diff($c['tradeDate1'])); //-=$c['tradeDate1'];
+									$st['tradeDate']->add($st['tradeDate']->diff($c['tradeDate1']));
 
 									$i--;
 
@@ -651,7 +641,7 @@ class Functions extends ContainerAware
 	    			foreach ($dividends as $div) {
 	    				if (!$div['special']) {
 	    					$d=$div;
-// Save quarterly/half year data
+							// Save quarterly/half year data
 							switch ($d1) {
 								case 4 : {
 	    							$q[$this->quarterYear($div['exDivDate']->format('Y-m-d H:i:s'))]=$div;

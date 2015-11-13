@@ -92,6 +92,18 @@ class Company
      */
     private $currency = 'GBP';
     
+    /**
+     * @var \DateTime
+     *
+     * @ORM\Column(name="CreatedOn", type="datetime", nullable=true)
+     */
+    private $createdOn = null;
+    
+    
+    public function __construct()
+    {
+    	$this->createdOn = new \DateTime();
+    }
     
     /**
      * Set id
@@ -344,5 +356,28 @@ class Company
     public function getCurrency()
     {
         return $this->currency;
+    }
+
+    /**
+     * Set createdOn
+     *
+     * @param \DateTime $createdOn
+     * @return Company
+     */
+    public function setCreatedOn($createdOn)
+    {
+        $this->createdOn = $createdOn;
+
+        return $this;
+    }
+
+    /**
+     * Get createdOn
+     *
+     * @return \DateTime
+     */
+    public function getCreatedOn()
+    {
+        return $this->createdOn;
     }
 }
