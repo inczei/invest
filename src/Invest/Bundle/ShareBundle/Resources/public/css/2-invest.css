@@ -353,3 +353,13 @@ td.headcol {
 	background-color: #808080;
 	color: #ffffff;
 }
+
+.notChanged {
+	color: green;
+}
+.changedUp {
+	color: blue;
+}
+.changedDown {
+	color: red;
+}

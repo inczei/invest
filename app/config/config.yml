@@ -58,7 +58,21 @@ doctrine:
 
     orm:
         auto_generate_proxy_classes: "%kernel.debug%"
-        auto_mapping: true
+        entity_managers:
+            default:
+                auto_mapping: true
+                dql:
+                    datetime_functions:
+                        DATE: DoctrineExtensions\Query\Mysql\Date
+                        MONTH: DoctrineExtensions\Query\Mysql\Month
+                        YEAR: DoctrineExtensions\Query\Mysql\Year
+                        DAY: DoctrineExtensions\Query\Mysql\Day
+                        DATE_FORMAT: DoctrineExtensions\Query\Mysql\DateFormat
+                        DATEDIFF: DoctrineExtensions\Query\Mysql\DateDiff
+                    string_functions:
+                        GROUP_CONCAT: DoctrineExtensions\Query\Mysql\GroupConcat
+                        CONCAT_WS: DoctrineExtensions\Query\Mysql\ConcatWs
+
 
 # Swiftmailer Configuration
 swiftmailer:

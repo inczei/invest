@@ -24,7 +24,8 @@
 		"incenteev/composer-parameter-handler" : "~2.0",
 		"doctrine/doctrine-fixtures-bundle" : "dev-master",
 		"doctrine/data-fixtures" : "dev-master",
-		"psliwa/pdf-bundle" : "dev-master"
+		"psliwa/pdf-bundle" : "dev-master",
+		"beberlei/DoctrineExtensions": "^1.0"
 	},
 	"scripts" : {
 		"post-install-cmd" : [

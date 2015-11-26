@@ -557,35 +557,29 @@ class DefaultController extends Controller
     	$searchSectors=array();
     	$searchPortfolios=array();
     	 
-    	$results=$this->getDoctrine()
-	    	->getRepository('InvestShareBundle:Company')
-	    	->findBy(
-    			array(),
-    			array(
-    				'sector'=>'ASC'
-    			)
-	    	);
+    	$qb=$em->createQueryBuilder()
+    		->select('c.sector')
+    		->from('InvestShareBundle:Company', 'c')
+    		->where('c.sector!=\'\'')
+    		->groupBy('c.sector')
+    		->orderBy('c.sector', 'ASC');
+    	$results=$qb->getQuery()->getArrayResult();
     	if (count($results)) {
     		foreach ($results as $result) {
-    			if ($result->getSector()) {
-    				$searchSectors[$result->getSector()]=$result->getSector();
-    			}
+   				$searchSectors[$result['sector']]=$result['sector'];
     		}
     	}
 
-    	$results=$this->getDoctrine()
-    		->getRepository('InvestShareBundle:Portfolio')
-    		->findBy(
-    			array(),
-    			array(
-    				'name'=>'ASC'
-    			)
-    	);
+    	$qb=$em->createQueryBuilder()
+    		->select('p.id')
+    		->addSelect('p.name')
+    		->from('InvestShareBundle:Portfolio', 'p')
+    		->where('p.name!=\'\'')
+    		->orderBy('p.name', 'ASC');
+    	$results=$qb->getQuery()->getArrayResult();
     	if (count($results)) {
     		foreach ($results as $result) {
-    			if ($result->getName()) {
-    				$searchPortfolios[$result->getId()]=$result->getName();
-    			}
+    			$searchPortfolios[$result['id']]=$result['name'];
     		}
     	}
     	 
@@ -770,8 +764,6 @@ class DefaultController extends Controller
 		if ($request->isMethod('POST')) {
 			if ($form->isValid()) {
 				
-				$em=$this->getDoctrine()->getManager();
-
 				$saved=false;
 				foreach ($_POST as $k=>$v) {
 					if (substr($k, 0, 5) == 'page_' && isset($v) && $v && strlen($v)) {
@@ -1448,7 +1440,7 @@ class DefaultController extends Controller
     		->add('search', 'submit')
 		    ->getForm();
     	
-    		
+/*    		
 		$results=$this->getDoctrine()
     		->getRepository('InvestShareBundle:Company')
     		->findBy(
@@ -1459,8 +1451,8 @@ class DefaultController extends Controller
     			$this->pager,
     			$pageStart
     		);
-
-		$query='SELECT SQL_CALC_FOUND_ROWS * FROM `Company`';
+*/
+		$query='SELECT SQL_CALC_FOUND_ROWS `id`,`Code`,`Name`,`Sector`,`Frequency`,`Currency` FROM `Company`';
 		if (count($searchArray)) {
 			$query.=' WHERE 1';
 			foreach ($searchArray as $k=>$v) {
@@ -2934,7 +2926,7 @@ class DefaultController extends Controller
 	    			'name'			=> 'Trade',
 	    			'message'		=> $message,
 					'errors'		=> $errors,
-					'form'			=> (($show)?($formView):(null)),
+					'form'			=> ($show?($formView):(null)),
 					'showForm'		=> ($show?$showForm:null),
 					'searchForm'	=> ($show?null:$searchFormView),
 					'formTitle'		=> $formTitle,
@@ -3254,7 +3246,7 @@ class DefaultController extends Controller
 										'notice',
 										'Portfolio already exists'
 									);
-								   						
+
 									return $this->redirect($this->generateUrl('invest_share_portfolio'));
 					    		}
 					    		$show=false;
@@ -4178,10 +4170,13 @@ class DefaultController extends Controller
 		    					$completed[$data1[0]]=array(
 									'Name'=>$data1[1],
 									'Code'=>$data1[0],
-									'Date'=>$ts,
+									'Date'=>new \DateTime($ts),
 									'Price'=>$data1[2],
 									'Changes'=>$data1[3],
 		    						'List'=>$list_sources[$i],
+		    						'lastDayAverage'=>0,
+		    						'lastWeekAverage'=>0,
+		    						'lastmonthAverage'=>0,
 		    						'newPrice'=>0
 		    					);
 		    				}
@@ -4278,11 +4273,12 @@ class DefaultController extends Controller
  * if new data or changed since last time, store as new
  */
 
+				    		$d=$value['Date'];
 				    		if ($ok) {
 					    		$StockPrices=new StockPrices();
 					    		
 								$StockPrices->setCode($value['Code']);
-					    		$StockPrices->setDate(new \DateTime($value['Date']));
+					    		$StockPrices->setDate($d);
 					    		$StockPrices->setPrice($value['Price']);
 					    		$StockPrices->setChanges($value['Changes']);
 					    		 
@@ -4294,7 +4290,8 @@ class DefaultController extends Controller
 					    		if ($StockPrices->getId()) {
 					    			$updated_prices++;
 					    		}
-					    		
+					    		unset($StockPrices);
+/*					    		
 					    		$spw=$this->getDoctrine()
 					    			->getRepository('InvestShareBundle:StockPricesWrong')
 					    			->findOneBy(array(
@@ -4305,12 +4302,24 @@ class DefaultController extends Controller
 					    			$em->remove($spw);
 					    			$em->flush();
 					    		}
+*/
 				    		} else {
 /*
- * anyway the new data should be wrong
+ * anyway the new data can be wrong, save into StockPricesWrong table
  */
+				    			$spw=new StockPricesWrong();
+				    			
+				    			$spw->setCode($value['Code']);
+				    			$spw->setDate($d);
+				    			$spw->setPrice($value['Price']);
+				    			$spw->setChanges($value['Changes']);
+				    			
+				    			$em->persist($spw);
+				    			$em->flush($spw);
+				    			 
 				    			error_log('Possibly wrong data : '.print_r($value, true));
 				    			$msg[]='['.$value['Name'].'] - ['.$value['Code'].'] - ['.$value['Price'].'] - ['.$value['Changes'].']';
+				    			unset($spw);
 				    		}
 /*
  *  Check company, if not exists this EPIC, should add as new Company
@@ -4332,7 +4341,7 @@ class DefaultController extends Controller
 				    			$company->setName($value['Name']);
 				    			$company->setLastPrice($value['Price']);
 				    			$company->setSector('');
-				    			$company->setLastPriceDate(new \DateTime($value['Date']));
+				    			$company->setLastPriceDate($d);
 				    			$company->setLastChange($value['Changes']);
 				    			$company->setList($value['List']);
 				    			 
@@ -4347,9 +4356,75 @@ class DefaultController extends Controller
  * Update stock prices for all the trades where the same company
 */
 			    				$company->setLastPrice($value['Price']);
-			    				$company->setLastPriceDate(new \DateTime($value['Date']));
+			    				$company->setLastPriceDate($d);
 			    				$company->setLastChange($value['Changes']);
 			    				$company->setList($value['List']);
+// error_log('company:'.$value['Code']);
+			    				$qb=$em->createQueryBuilder()
+				    				->select('AVG(sp.price) as averageDay')
+				    				->addSelect('DATE(sp.date) as day')
+				    				->from('InvestShareBundle:StockPrices', 'sp')
+				    				->where('sp.code=:code')
+				    				->andWhere('DATE(sp.date)<:date')
+				    				->groupBy('day')
+				    				->orderBy('day', 'DESC')
+				    				->setMaxResults(1)
+				    				->setParameter('code', $value['Code'])
+				    				->setParameter('date', $d->format('Y-m-d'));
+			    				$r=$qb->getQuery()->getArrayResult();
+			    				if ($r && count($r)) {
+			    					$r1=reset($r);
+			    					$company->setLastDayAveragePrice($r1['averageDay']);
+			    					$completed[$key]['lastDay']=$r1['averageDay'];
+			    					unset($r1);
+// error_log('day:'.print_r($r1, true));
+			    				}
+			    				unset($r);
+			    				unset($qb);
+
+			    				$d2=clone $d;
+			    				$d2->modify('-1 week');
+			    				$qb=$em->createQueryBuilder()
+				    				->select('AVG(sp.price) as averageWeek')
+				    				->addSelect('DATE(sp.date) as day')
+				    				->from('InvestShareBundle:StockPrices', 'sp')
+				    				->where('sp.code=:code')
+				    				->andWhere('DATE(sp.date)<:date1 AND DATE(sp.date)>=:date2')
+				    				->setParameter('code', $value['Code'])
+				    				->setParameter('date1', $d->format('Y-m-d'))
+			    					->setParameter('date2', $d2->format('Y-m-d'));
+			    				$r=$qb->getQuery()->getArrayResult();
+			    				if ($r && count($r)) {
+			    					$r1=reset($r);
+			    					$company->setLastWeekAveragePrice($r1['averageWeek']);
+			    					$completed[$key]['lastWeek']=$r1['averageWeek'];
+			    					unset($r1);
+// error_log('week:'.print_r($r1, true));
+			    				}
+			    				unset($r);
+			    				unset($qb);
+			    				 
+				    			$d3=clone $d;
+			    				$d3->modify('-1 month');
+			    				$qb=$em->createQueryBuilder()
+				    				->select('AVG(sp.price) as averageMonth')
+				    				->addSelect('DATE(sp.date) as day')
+				    				->from('InvestShareBundle:StockPrices', 'sp')
+				    				->where('sp.code=:code')
+				    				->andWhere('DATE(sp.date)<:date1 AND DATE(sp.date)>=:date2')
+				    				->setParameter('code', $value['Code'])
+				    				->setParameter('date1', $d->format('Y-m-d'))
+			    					->setParameter('date2', $d3->format('Y-m-d'));
+			    				$r=$qb->getQuery()->getArrayResult();
+			    				if ($r && count($r)) {
+			    					$r1=reset($r);
+			    					$company->setLastMonthAveragePrice($r1['averageMonth']);
+			    					$completed[$key]['lastMonth']=$r1['averageMonth'];
+			    					unset($r1);
+// error_log('month:'.print_r($r1, true));
+			    				}
+			    				unset($r);
+			    				unset($qb);
 			    				 
 			    				$em->flush();
 
@@ -4357,7 +4432,9 @@ class DefaultController extends Controller
  * if any trade data exists with this company code, update with the last price
  */
 				    		}
+				    		unset($company);
 				    	}
+				    	unset($result);
 		    		}
 				}
 	    	}
@@ -4457,6 +4534,9 @@ class DefaultController extends Controller
     			->addSelect('p.price')
     			->addSelect('p.changes')
     			->addSelect('p.date')
+    			->addSelect('c.lastDayAveragePrice as lastDay')
+    			->addSelect('c.lastWeekAveragePrice as lastWeek')
+    			->addSelect('c.lastMonthAveragePrice as lastMonth')
     			->from('InvestShareBundle:Company', 'c')
     			->join('InvestShareBundle:StockPrices', 'p', 'WITH', 'c.code=p.code')
     			->where('p.date=:date')
@@ -4474,7 +4554,10 @@ class DefaultController extends Controller
 	    				'List'=>$pr1['list'],
     					'Price'=>$pr1['price'],
    						'Changes'=>$pr1['changes'],
-    					'Date'=>$pr1['date']->format('d/m/Y H:i:s')
+    					'Date'=>$pr1['date'],
+    					'lastDay'=>$pr1['lastDay'],
+    					'lastWeek'=>$pr1['lastWeek'],
+    					'lastMonth'=>$pr1['lastMonth']
     				);
     			}
     		}
@@ -4492,6 +4575,10 @@ class DefaultController extends Controller
     			->addSelect('c.lastPrice as price')
     			->addSelect('c.lastChange as changes')
     			->addSelect('c.lastPriceDate as date')
+    			->addSelect('c.lastDayAveragePrice as lastDay')
+    			->addSelect('c.lastWeekAveragePrice as lastWeek')
+    			->addSelect('c.lastMonthAveragePrice as lastMonth')
+    			 
     			->from('InvestShareBundle:Company', 'c')
     			->orderBy('c.name');
     		
@@ -4522,7 +4609,10 @@ class DefaultController extends Controller
 	    				'List'=>$pr1['list'],
 	    				'Price'=>$pr1['price'],
 	    				'Changes'=>$pr1['changes'],
-	    				'Date'=>(($pr1['date'] == null || $pr1['date']->getTimestamp()<0)?(''):($pr1['date']->format('d/m/Y H:i:s'))),
+	    				'Date'=>(($pr1['date'] == null || $pr1['date']->getTimestamp()<0)?(''):($pr1['date'])),
+    					'lastDay'=>$pr1['lastDay'],
+    					'lastWeek'=>$pr1['lastWeek'],
+    					'lastMonth'=>$pr1['lastMonth'],
 	    				'Class'=>$class
 	    			);
 	    		}
@@ -4549,21 +4639,17 @@ class DefaultController extends Controller
     		
     	} else {
 
-    		$allCompanies=$this->getDoctrine()
-    			->getRepository('InvestShareBundle:Company')
-    			->findBy(
-    				array(),
-    				array(
-   						'name'=>'ASC'
-    				)
-    			);
-    		 
+    		$qb=$em->createQueryBuilder()
+    			->select('c.code')
+    			->from('InvestShareBundle:Company', 'c')
+    			->orderBy('c.name', 'ASC');
+    		
+    		$allCompanies=$qb->getQuery()->getArrayResult();
     		
     		if (count($allCompanies)) {
     			foreach ($allCompanies as $result) {
-    				$c=str_replace('.', '_', $result->getCode());
-    				$fb->add($c, 'checkbox', array(
-   						'label'=>$result->getCode(),
+    				$fb->add(str_replace('.', '_', $result['code']), 'checkbox', array(
+   						'label'=>$result['code'],
     					'value'=>1,
    						'required'=>false
     				));
@@ -4602,7 +4688,7 @@ class DefaultController extends Controller
     		->select('p.date')
     		->from('InvestShareBundle:StockPrices', 'p')
     		->groupBy('p.date')
-    		->orderBy('p.date');
+    		->orderBy('p.date', 'DESC');
     	
     	if ($startDate) {
     		$qb->andWhere('p.date>=\''.$startDate->format('Y-m-d H:i:s').'\'');
@@ -4749,39 +4835,45 @@ class DefaultController extends Controller
     
     public function currencyAction($currency) {
 
-    	$limit=100;
+    	$limit=50;
     	$message='';
     	$data=array();
     	$dates=array();
     	$currencies=array();
-    	$search=array();
     	$updated=array();
     	$functions=$this->get('invest.share.functions');
     	
     	$this->currencyNeeded=$functions->getCurrencyList();
     	
-    	if ($currency && in_array($currency, $this->currencyNeeded)) {
-    		$search=array('currency'=>$currency);
-    	}
-    	
     	if (!$currency) {
-
-	    	$results=$this->getDoctrine()
-	    		->getRepository('InvestShareBundle:Currency')
-	    		->findBy($search, array('updated'=>'DESC', 'currency'=>'ASC'), $limit*count($this->currencyNeeded));
-	    	
+			$em=$this->getDoctrine()->getManager();
+			
+    		$qb=$em->createQueryBuilder()
+    			->select('c.currency')
+    			->addSelect('c.rate')
+    			->addSelect('c.updated')
+    			->from('InvestShareBundle:Currency', 'c')
+    			->orderBy('c.updated', 'DESC')
+    			->addOrderBy('c.currency', 'ASC')
+    			->setMaxResults($limit*count($this->currencyNeeded));
+    		
+    		if ($currency && in_array($currency, $this->currencyNeeded)) {
+    			$qb->andWhere('c.currency=:cur')
+    				->setParameter('cur', $currency);
+    		}
+    		$results=$qb->getQuery()->getArrayResult();
 	    	if ($results && count($results)) {
 	    		foreach ($results as $result) {
-	    			if (in_array($result->getCurrency(), $this->currencyNeeded)) {
-	    				if (!in_array($result->getCurrency(), $currencies)) {
-	    					$currencies[]=$result->getCurrency();
+	    			if (in_array($result['currency'], $this->currencyNeeded)) {
+	    				if (!in_array($result['currency'], $currencies)) {
+	    					$currencies[]=$result['currency'];
 	    				}
-	    				$updated=explode('-', $result->getUpdated()->format('Y-m-d-H-i-s'));
-	    				$data[$result->getCurrency()][$result->getUpdated()->format('Y-m-d-H-i-s')]=array(
-	    					'Rate'=>$result->getRate(),
+	    				$updated=explode('-', $result['updated']->format('Y-m-d-H-i-s'));
+	    				$data[$result['currency']][$result['updated']->format('Y-m-d-H-i-s')]=array(
+	    					'Rate'=>$result['rate'],
 	    					'Date'=>$updated
-	    					);
-	    				$dates[$result->getUpdated()->format('Y-m-d-H-i-s')]=$result->getUpdated()->format('d/m/Y H:i');
+	    				);
+	    				$dates[$result['updated']->format('Y-m-d-H-i-s')]=$result['updated']->format('d/m/Y H:i');
 	    			}
 	    		}
 	    		if (count($dates)) {
@@ -4792,7 +4884,7 @@ class DefaultController extends Controller
 	    						$data[$cur][$date]=array('Rate'=>null, 'Date'=>array($updated[3], $updated[4], $updated[5], $updated[1], $updated[2], $updated[0]));
 	    					}
 	    				}
-	    				ksort($data[$cur]);
+	    				krsort($data[$cur]);
 	    			}
 	    		}
 	    	}

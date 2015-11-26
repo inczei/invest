@@ -67,6 +67,34 @@ class Company
     /**
      * @var float
      *
+     * @ORM\Column(name="LatestAveragePrice", type="float", nullable=true)
+     */
+    private $latestAveragePrice = null;
+    
+    /**
+     * @var float
+     *
+     * @ORM\Column(name="LastDayAveragePrice", type="float", nullable=true)
+     */
+    private $lastDayAveragePrice = null;
+    
+    /**
+     * @var float
+     *
+     * @ORM\Column(name="LastWeekAveragePrice", type="float", nullable=true)
+     */
+    private $lastWeekAveragePrice = null;
+    
+    /**
+     * @var float
+     *
+     * @ORM\Column(name="LastMonthAveragePrice", type="float", nullable=true)
+     */
+    private $lastMonthAveragePrice = null;
+    
+    /**
+     * @var float
+     *
      * @ORM\Column(name="LastChange", type="float", nullable=true)
      */
     private $lastChange = null;
@@ -380,4 +408,97 @@ class Company
     {
         return $this->createdOn;
     }
+
+    /**
+     * Set latestAveragetPrice
+     *
+     * @param float $latestAveragePrice
+     * @return Company
+     */
+    public function setLatestAveragePrice($latestAveragePrice)
+    {
+    	$this->latestAveragePrice = $latestAveragePrice;
+    
+    	return $this;
+    }
+    
+    /**
+     * Get latestAveragePrice
+     *
+     * @return float
+     */
+    public function getLatestAveragePrice()
+    {
+    	return $this->latestAveragePrice;
+    }
+    
+    /**
+     * Set lastDayAveragetPrice
+     *
+     * @param float $lastDayAveragePrice
+     * @return Company
+     */
+    public function setLastDayAveragePrice($lastDayAveragePrice)
+    {
+    	$this->lastDayAveragePrice = $lastDayAveragePrice;
+    
+    	return $this;
+    }
+    
+    /**
+     * Get lastDayAveragePrice
+     *
+     * @return float
+     */
+    public function getLastDayAveragePrice()
+    {
+    	return $this->lastDayAveragePrice;
+    }
+    
+    /**
+     * Set lastWeekAveragetPrice
+     *
+     * @param float $lastWeekAveragePrice
+     * @return Company
+     */
+    public function setLastWeekAveragePrice($lastWeekAveragePrice)
+    {
+    	$this->lastWeekAveragePrice = $lastWeekAveragePrice;
+    
+    	return $this;
+    }
+    
+    /**
+     * Get lastWeekAveragePrice
+     *
+     * @return float
+     */
+    public function getLastWeekAveragePrice()
+    {
+    	return $this->lastWeekAveragePrice;
+    }
+    
+    /**
+     * Set lastMonthAveragetPrice
+     *
+     * @param float $lastMonthAveragePrice
+     * @return Company
+     */
+    public function setLastMonthAveragePrice($lastMonthAveragePrice)
+    {
+    	$this->lastMonthAveragePrice = $lastMonthAveragePrice;
+    
+    	return $this;
+    }
+    
+    /**
+     * Get lastMonthAveragePrice
+     *
+     * @return float
+     */
+    public function getLastMonthAveragePrice()
+    {
+    	return $this->lastMonthAveragePrice;
+    }
+    
 }
