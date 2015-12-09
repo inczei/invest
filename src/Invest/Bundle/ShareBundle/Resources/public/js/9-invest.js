@@ -154,3 +154,55 @@ $(document).ready(function(){
 	});
 	
 });
+
+function ajaxUpdatePrices(url) {
+	var codes=[];
+	$("td[id$='_price']").each(function() {
+		var id=$(this).attr('id').split('_');
+		if (id.length == 3) {
+			codes.push(id[1]);	
+		}
+	});
+	if (codes.length > 0) {
+		$.ajax({
+			url: url,
+			type: 'POST',
+			dataType: 'json',
+			data : {
+				codes: codes
+			},
+			timeout: 10000
+		})
+		.error(function(jqXHR, status, errorThrown) {
+//			alert('ajax error');
+		})
+		.done(function(data) {
+			for(idx in data) {
+				var old=$('td#au_'+idx+'_price').html();
+				if (typeof old !== 'undefined') {
+					$('td#au_'+idx+'_price').removeClass();
+					$('td#au_'+idx+'_updated').removeClass();
+					if (old != data[idx].price) {
+						var orig_color=$('td#au_'+idx+'_price').css('backgroundColor');
+						$('td#au_'+idx+'_price').html(data[idx].price).css('backgroundColor','#00c800').animate({'backgroundColor':orig_color}, 5000);
+						$('td#au_'+idx+'_change').html(data[idx].change).removeClass().css('backgroundColor','#00c800').animate({'backgroundColor':orig_color}, 5000);
+						$('td#au_'+idx+'_changep').html(data[idx].changep+' %').removeClass().css('backgroundColor','#00c800').animate({'backgroundColor':orig_color}, 5000);
+						$('td#au_'+idx+'_updated').html(data[idx].updated);
+						if (data[idx].change == 0) {
+							$('td#au_'+idx+'_change').addClass('notChanged');
+							$('td#au_'+idx+'_changep').addClass('notChanged');
+						} else if (data[idx].change > 0) {
+							$('td#au_'+idx+'_change').addClass('changedUp');
+							$('td#au_'+idx+'_changep').addClass('changedUp');
+						} else if (data[idx].change < 0) {
+							$('td#au_'+idx+'_change').addClass('changedDown');
+							$('td#au_'+idx+'_changep').addClass('changedDown');
+						}
+					}
+					$('td#au_'+idx+'_updated').addClass(data[idx].class);					
+				}
+			}
+		});
+	}
+	
+}

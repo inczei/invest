@@ -57,7 +57,12 @@ class Diary
      */
     private $createdOn;
 
-
+    
+    public function __construct()
+    {
+    	$this->createdOn = new \DateTime();
+    }
+    
     /**
      * Get id
      *

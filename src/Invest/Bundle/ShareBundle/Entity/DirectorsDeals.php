@@ -93,6 +93,11 @@ class DirectorsDeals
     private $value;
 
 
+    public function __construct()
+    {
+    	$this->createdOn = new \DateTime();
+    }
+    
     /**
      * Get id
      *

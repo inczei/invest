@@ -30,9 +30,25 @@ use Invest\Bundle\ShareBundle\Entity\Summary;
 use Invest\Bundle\ShareBundle\Entity\Currency;
 use Symfony\Component\Validator\Validator;
 use Invest\Bundle\ShareBundle\InvestShareBundle;
-use Symfony\Component\Serializer\Encoder\JsonEncode;
-use Symfony\Component\HttpFoundation\JsonResponse;
 use Ps\PdfBundle\Annotation\Pdf;
+use Invest\Bundle\ShareBundle\Form\Type\PricesCompanySelectType;
+use Invest\Bundle\ShareBundle\Form\Type\DividendSearchType;
+use Invest\Bundle\ShareBundle\Form\Type\CompanyType;
+use Invest\Bundle\ShareBundle\Form\Type\DividendDetailsType;
+use Invest\Bundle\ShareBundle\Form\Type\CompanySearchType;
+use Invest\Bundle\ShareBundle\Form\Type\DealsSearchType;
+use Invest\Bundle\ShareBundle\Form\Type\DiarySearchType;
+use Invest\Bundle\ShareBundle\Form\Type\TradeUploadType;
+use Invest\Bundle\ShareBundle\Form\Type\PortfolioType;
+use Invest\Bundle\ShareBundle\Form\Type\PortfolioCreditDebitType;
+use Invest\Bundle\ShareBundle\Form\Type\TradeType;
+use Invest\Bundle\ShareBundle\Form\Type\TradeDetailsType;
+use Invest\Bundle\ShareBundle\Form\Type\PricelistSelectType;
+use Invest\Bundle\ShareBundle\Form\Type\CompanySelectType;
+use Invest\Bundle\ShareBundle\Form\Type\CurrencySelectType;
+use Invest\Bundle\ShareBundle\Form\Type\TradeSearchType;
+use Invest\Bundle\ShareBundle\Form\Type\NotesType;
+
 
 class DefaultController extends Controller
 {
@@ -225,6 +241,50 @@ class DefaultController extends Controller
 
 		$em=$this->getDoctrine()->getManager();
 		$functions=$this->get('invest.share.functions');
+
+		if (!$request->isMethod('POST') && null !== ($request->getSession()->get('is_div'))) {
+			$data=$request->getSession()->get('is_div');
+			$ok=true;
+			if (isset($data['updated'])) {
+				if ($data['updated'] < date('Y-m-d H:i:s', time()-$this->searchTime)) {
+					$ok=false;
+				}
+			}
+			if ($ok) {
+				if (isset($data['f']) && is_object($data['f'])) {
+					$searchDateFrom=$data['f'];
+				}
+				if (isset($data['t']) && is_object($data['t'])) {
+					$searchDateTo=$data['t'];
+				}
+				if (isset($data['pf']) && is_object($data['pf'])) {
+					$searchPaymentDateFrom=$data['pf'];
+				}
+				if (isset($data['pt']) && is_object($data['pt'])) {
+					$searchPaymentDateTo=$data['pt'];
+				}
+				if (isset($data['p'])) {
+					$searchPortfolio=$data['p'];
+				}
+				if (isset($data['s'])) {
+					$searchSector=$data['s'];
+				}
+				if (isset($data['i'])) {
+					$searchIncome=$data['i'];
+				}
+				if (isset($data['o'])) {
+					$orderBy=$data['o'];
+				}
+				if (isset($data['d1'])) {
+					$exDivDateSearch=$data['d1'];
+				}
+				if (isset($data['d2'])) {
+					$paymentDateSearch=$data['d2'];
+				}
+			} else {
+				$request->getSession()->remove('is_div');
+			}
+		}
 		
     	$companies=array();
     	$tradeData=$functions->getTradesData(null, null, null, 0, null, null);
@@ -270,39 +330,83 @@ class DefaultController extends Controller
     		}
     	}
 
-        if ($request->isMethod('POST')) {
-			if (isset($_POST['form']['exDivDateFrom']) && $_POST['form']['exDivDateFrom']) {
-				$searchDateFrom=\DateTime::createFromFormat('d/m/Y', $_POST['form']['exDivDateFrom']);
+    	$order=array(
+    		0=>'c.name, d.exDivDate',
+    		1=>'d.exDivDate, c.name'
+    	);
+    	$orderName=array(
+    		0=>'Name',
+    		1=>'ExDiv Date'
+    	);
+    	
+    	$searchSectors=array();
+    	$searchPortfolios=array();
+    	 
+    	$qb=$em->createQueryBuilder()
+    		->select('c.sector')
+    		->from('InvestShareBundle:Company', 'c')
+    		->where('c.sector!=\'\'')
+    		->groupBy('c.sector')
+    		->orderBy('c.sector', 'ASC');
+    	$results=$qb->getQuery()->getArrayResult();
+    	if (count($results)) {
+    		foreach ($results as $result) {
+   				$searchSectors[$result['sector']]=$result['sector'];
+    		}
+    	}
+
+    	$qb=$em->createQueryBuilder()
+    		->select('p.id')
+    		->addSelect('p.name')
+    		->from('InvestShareBundle:Portfolio', 'p')
+    		->where('p.name!=\'\'')
+    		->orderBy('p.name', 'ASC');
+    	$results=$qb->getQuery()->getArrayResult();
+    	if (count($results)) {
+    		foreach ($results as $result) {
+    			$searchPortfolios[$result['id']]=$result['name'];
+    		}
+    	}
+    	 
+    	$searchIncomes=array(1=>'With income', 2=>'Without income', 3=>'All');
+
+    	$searchForm=$this->createForm(new DividendSearchType($this->generateUrl('invest_share_dividend'), $exDivDateSearch, $paymentDateSearch, $searchDateFrom, $searchDateTo, $searchPaymentDateFrom, $searchPaymentDateTo, $searchSector, $searchSectors, $searchPortfolio, $searchPortfolios, $searchIncome, $searchIncomes, $orderName, $orderBy));
+    	$searchForm->handleRequest($request);
+    	
+    	if ($request->isMethod('POST')) {
+    		$formData=$searchForm->getData();
+			if (isset($formData['exDivDateFrom']) && $formData['exDivDateFrom']) {
+				$searchDateFrom=$formData['exDivDateFrom'];
 			}
-			if (isset($_POST['form']['exDivDateTo']) && $_POST['form']['exDivDateTo']) {
-				$searchDateTo=\DateTime::createFromFormat('d/m/Y', $_POST['form']['exDivDateTo']);
+    		if (isset($formData['exDivDateTo']) && $formData['exDivDateTo']) {
+				$searchDateTo=$formData['exDivDateTo'];
 			}
-        	if (isset($_POST['form']['paymentDateFrom']) && $_POST['form']['paymentDateFrom']) {
-				$searchPaymentDateFrom=\DateTime::createFromFormat('d/m/Y', $_POST['form']['paymentDateFrom']);
+    	    if (isset($formData['paymentDateFrom']) && $formData['paymentDateFrom']) {
+				$searchPaymentDateFrom=$formData['paymentDateFrom'];
 			}
-			if (isset($_POST['form']['paymentDateTo']) && $_POST['form']['paymentDateTo']) {
-				$searchPaymentDateTo=\DateTime::createFromFormat('d/m/Y', $_POST['form']['paymentDateTo']);
+    	    if (isset($formData['paymentDateTo']) && $formData['paymentDateTo']) {
+				$searchPaymentDateTo=$formData['paymentDateTo'];
 			}
-			if (isset($_POST['form']['portfolio']) && $_POST['form']['portfolio']) {
-				$searchPortfolio=$_POST['form']['portfolio'];
+    		if (isset($formData['portfolio']) && $formData['portfolio']) {
+				$searchPortfolio=$formData['portfolio'];
 			}
-			if (isset($_POST['form']['sector']) && $_POST['form']['sector']) {
-				$searchSector=$_POST['form']['sector'];
+    	    if (isset($formData['sector']) && $formData['sector']) {
+				$searchSector=$formData['sector'];
 			}
-			if (isset($_POST['form']['income']) && $_POST['form']['income']) {
-				$searchIncome=$_POST['form']['income'];
+    	    if (isset($formData['income']) && $formData['income']) {
+				$searchIncome=$formData['income'];
 			}
-			if (isset($_POST['form']['orderby']) && $_POST['form']['orderby']) {
-				$orderBy=$_POST['form']['orderby'];
+    	    if (isset($formData['orderBy']) && $formData['orderBy']) {
+				$orderBy=$formData['orderBy'];
 			}
-			if (isset($_POST['form']['exDivDateSearch']) && $_POST['form']['exDivDateSearch']) {
-				$exDivDateSearch=$_POST['form']['exDivDateSearch'];
+    	    if (isset($formData['exDivDateSearch']) && $formData['exDivDateSearch']) {
+				$exDivDateSearch=$formData['exDivDateSearch'];
 			}
-			if (isset($_POST['form']['paymentDateSearch']) && $_POST['form']['paymentDateSearch']) {
-				$paymentDateSearch=$_POST['form']['paymentDateSearch'];
+			if (isset($formData['paymentDateSearch']) && $formData['paymentDateSearch']) {
+				$paymentDateSearch=$formData['paymentDateSearch'];
 			}
 				
-			$this->getRequest()->getSession()->set('is_div',
+			$request->getSession()->set('is_div',
 				array(
 					'f'=>$searchDateFrom,
 					't'=>$searchDateTo,
@@ -317,61 +421,10 @@ class DefaultController extends Controller
 					'updated'=>date('Y-m-d H:i:s')
 				)
 			);
-		} else {
-			if (null !== ($this->getRequest()->getSession()->get('is_div'))) {
-				$data=$this->getRequest()->getSession()->get('is_div');
-				$ok=true;
-				if (isset($data['updated'])) {
-					if ($data['updated'] < date('Y-m-d H:i:s', time()-$this->searchTime)) {
-						$ok=false;
-					}
-				}
-				if ($ok) {
-					if (isset($data['f'])) {
-						$searchDateFrom=$data['f'];
-					}
-					if (isset($data['t'])) {
-						$searchDateTo=$data['t'];
-					}
-					if (isset($data['pf'])) {
-						$searchPaymentDateFrom=$data['pf'];
-					}
-					if (isset($data['pt'])) {
-						$searchPaymentDateTo=$data['pt'];
-					}
-					if (isset($data['p'])) {
-						$searchPortfolio=$data['p'];
-					}
-					if (isset($data['s'])) {
-						$searchSector=$data['s'];
-					}
-					if (isset($data['i'])) {
-						$searchIncome=$data['i'];
-					}
-					if (isset($data['o'])) {
-						$orderBy=$data['o'];
-					}
-					if (isset($data['d1'])) {
-						$exDivDateSearch=$data['d1'];
-					}
-					if (isset($data['d2'])) {
-						$paymentDateSearch=$data['d2'];
-					}
-				} else {
-					$this->getRequest()->getSession()->remove('is_div');
-				}
-			}
+			
+			return $this->redirect($this->generateUrl('invest_share_dividend'));
 		}
 		
-    	$order=array(
-    		0=>'c.name, d.exDivDate',
-    		1=>'d.exDivDate, c.name'
-    	);
-    	$orderName=array(
-    		0=>'Name',
-    		1=>'ExDiv Date'
-    	);
-    	
     	$qb=$em->createQueryBuilder()
     		->select('c.code')
     		->addSelect('c.name')
@@ -554,127 +607,7 @@ class DefaultController extends Controller
     		}
     	}
 
-    	$searchSectors=array();
-    	$searchPortfolios=array();
-    	 
-    	$qb=$em->createQueryBuilder()
-    		->select('c.sector')
-    		->from('InvestShareBundle:Company', 'c')
-    		->where('c.sector!=\'\'')
-    		->groupBy('c.sector')
-    		->orderBy('c.sector', 'ASC');
-    	$results=$qb->getQuery()->getArrayResult();
-    	if (count($results)) {
-    		foreach ($results as $result) {
-   				$searchSectors[$result['sector']]=$result['sector'];
-    		}
-    	}
-
-    	$qb=$em->createQueryBuilder()
-    		->select('p.id')
-    		->addSelect('p.name')
-    		->from('InvestShareBundle:Portfolio', 'p')
-    		->where('p.name!=\'\'')
-    		->orderBy('p.name', 'ASC');
-    	$results=$qb->getQuery()->getArrayResult();
-    	if (count($results)) {
-    		foreach ($results as $result) {
-    			$searchPortfolios[$result['id']]=$result['name'];
-    		}
-    	}
-    	 
-    	$empty_array=array(0=>'All');
-    	$searchIncomes=array(1=>'With income', 2=>'Without income', 3=>'All');
     	
-    	$searchForm=$this->createFormBuilder()
-    		->setAction($this->generateUrl('invest_share_dividend'))
-    		->add('exDivDateSearch', 'checkbox', array(
-    			'required'=>false,
-    			'data'=>($exDivDateSearch?true:false)
-    		))
-    		->add('paymentDateSearch', 'checkbox', array(
-    			'required'=>false,
-    			'data'=>($paymentDateSearch?true:false)
-    		))
-    		->add('exDivDateFrom', 'date', array(
-    			'widget'=>'single_text',
-    			'label'=>'Ex Dividend Date : ',
-    			'data'=>$searchDateFrom,
-			    'format'=>'dd/MM/yyyy',
-			    'attr'=>array(
-		    		'class'=>'dateInput',
-			    	'size'=>10,
-		    		'style'=>'width: 90px'
-			    )
-    		))
-    		->add('exDivDateTo', 'date', array(
-    			'widget'=>'single_text',
-    			'label'=>' - ',
-    			'data'=>$searchDateTo,
-			    'format'=>'dd/MM/yyyy',
-			    'attr'=>array(
-		    		'class'=>'dateInput',
-			    	'size'=>10,
-		    		'style'=>'width: 90px'
-			    )
-    		))
-    		->add('paymentDateFrom', 'date', array(
-    			'widget'=>'single_text',
-    			'label'=>'Payment Date : ',
-    			'data'=>$searchPaymentDateFrom,
-			    'format'=>'dd/MM/yyyy',
-			    'attr'=>array(
-		    		'class'=>'dateInput',
-			    	'size'=>10,
-		    		'style'=>'width: 90px'
-			    )
-    		))
-    		->add('paymentDateTo', 'date', array(
-    			'widget'=>'single_text',
-    			'label'=>' - ',
-    			'data'=>$searchPaymentDateTo,
-			    'format'=>'dd/MM/yyyy',
-			    'attr'=>array(
-		    		'class'=>'dateInput',
-			    	'size'=>10,
-		    		'style'=>'width: 90px'
-			    )
-    		))
-    		->add('sector', 'choice', array(
-    			'choices'=>$empty_array+$searchSectors,
-    			'label'=>'Sector : ',
-    			'data'=>$searchSector,
-			    'attr'=>array(
-		    		'style'=>'width: 150px'
-				)
-    		))
-    		->add('portfolio', 'choice', array(
-    			'choices'=>$empty_array+$searchPortfolios,
-    			'label'=>'Portfolio : ',
-    			'data'=>$searchPortfolio,
-			    'attr'=>array(
-		    		'style'=>'width: 150px'
-				)
-    		))
-    		->add('income', 'choice', array(
-    			'choices'=>$searchIncomes,
-    			'label'=>'Income : ',
-    			'data'=>$searchIncome,
-			    'attr'=>array(
-		    		'style'=>'width: 100px'
-				)
-    		))
-    		->add('orderby', 'choice', array(
-    			'choices'=>$orderName,
-    			'label'=>'Order By : ',
-    			'data'=>$orderBy,
-			    'attr'=>array(
-		    		'style'=>'width: 80px'
-				)
-    		))
-    		->add('search', 'submit')
-    		->getForm();
-
 /*
  * if we have date filter, delete all the unneccessary records
  */
@@ -753,19 +686,16 @@ class DefaultController extends Controller
 				$notes[substr($result['name'], 5, strlen($result['name']))]=$result['value'];
 			}
 		}
-		$form=$this->createFormBuilder()
-			->add('save', 'submit', array(
-				'label'=>'Save'
-			))
-			->getForm();
     	
+		$form=$this->createForm(new NotesType($notes));
 		$form->handleRequest($request);
 
 		if ($request->isMethod('POST')) {
 			if ($form->isValid()) {
 				
 				$saved=false;
-				foreach ($_POST as $k=>$v) {
+				$formData=$form->getData();
+				foreach ($formData as $k=>$v) {
 					if (substr($k, 0, 5) == 'page_' && isset($v) && $v && strlen($v)) {
 						
 						$notes=$this->getDoctrine()
@@ -820,10 +750,16 @@ class DefaultController extends Controller
     	$company=new Company();
     	$dividend=new Dividend();
     	
-
     	$em=$this->getDoctrine()->getManager();
     	$functions=$this->get('invest.share.functions');
-    	
+    	$searchCompanies=array();
+    	$searchSectors=array();
+    	$searchLists=array(
+    		'FTSE100'=>'FTSE 100',
+    		'FTSE250'=>'FTSE 250',
+    		'FTSESmallCap'=>'FTSE Small Cap'
+    	);
+    	 
     	switch ($action) {
     		case 'page' : {
     			
@@ -981,43 +917,7 @@ class DefaultController extends Controller
  */
     			case 1 : {
     				$formTitle='Company Details';
-			    	$form=$this->createFormBuilder($company)
-			    		->add('id', 'hidden', array(
-			    			'data'=>$company->getId()
-			    		))
-			    		->add('name', 'text', array(
-			    			'label'=>'Name',
-			    			'data'=>$company->getName()
-			    		))
-			    		->add('code', 'text', array(
-			    			'label'=>'EPIC',
-			    			'data'=>$company->getCode()
-			    		))
-			    		->add('sector', 'text', array(
-			    			'label'=>'Sector',
-		    				'required'=>false,
-			    			'data'=>$company->getSector()
-			    		))
-			    		->add('currency', 'text', array(
-			    			'label'=>'Currency',
-		    				'required'=>true,
-			    			'data'=>$company->getCurrency()
-			    		))
-			    		->add('frequency', 'text', array(
-			    			'label'=>'Dividend Payments per Year',
-		    				'required'=>false,
-			    			'data'=>$company->getFrequency()
-			    		))
-			    		->add('altName', 'text', array(
-			    			'label'=>'Alternative name',
-		    				'required'=>false,
-			    			'data'=>$company->getAltName()
-			    		))
-			    		->add('save', 'submit', array(
-			    			'label'=>'Save'
-			    		))
-			    		->getForm();
-			    	
+    				$form=$this->createForm(new CompanyType($company, $searchLists));
 			    	$form->handleRequest($request);
 			    	
 			    	$validator=$this->get('validator');
@@ -1048,6 +948,7 @@ class DefaultController extends Controller
 						   				$company=new Company();
 							    		$company->setName($form->get('name')->getData());
 							    		$company->setAltName($form->get('altName')->getData());
+							    		$company->setList($form->get('list')->getData());
 							    		$company->setCode($form->get('code')->getData());
 							    		$company->setSector($form->get('sector')->getData());
 							    		$company->setFrequency($form->get('frequency')->getData());
@@ -1083,6 +984,7 @@ class DefaultController extends Controller
 				
 				   					$company->setName($form->get('name')->getData());
 				   					$company->setAltName($form->get('altName')->getData());
+				   					$company->setList($form->get('list')->getData());
 				   					$company->setCode($form->get('code')->getData());
 				   					$company->setSector($form->get('sector')->getData());
 				   					$company->setFrequency($form->get('frequency')->getData());
@@ -1119,77 +1021,7 @@ class DefaultController extends Controller
  * 2nd form with dividend details
  */
 		    		$formTitle='Dividend Details';
-		    		$form2=$this->createFormBuilder($dividend)
-		    			->add('id', 'hidden', array(
-		    				'data'=>$dividend->getId()
-		    			))
-		    			->add('CompanyId', 'hidden', array(
-		    				'data'=>$id
-		    			))
-		    			->add('EPIC', 'text', array(
-		    				'label'=>'EPIC',
-		    				'read_only'=>true,
-		    				'mapped'=>false,
-		    				'data'=>$company->getCode()
-		    			))
-		    			->add('Company', 'text', array(
-		    				'label'=>'Company',
-		    				'read_only'=>true,
-		    				'mapped'=>false,
-		    				'data'=>$company->getName()
-		    			))
-		    			->add('DeclDate', 'date', array(
-		    				'widget'=>'single_text',
-		    				'label'=>'Declaration Date',
-		    				'data'=>$dividend->getDeclDate(),
-		    				'format'=>'dd/MM/yyyy',
-		    				'attr'=>array(
-		    					'class'=>'dateInput',
-		    					'size'=>10
-		    				)
-		    			))
-		    			->add('ExDivDate', 'date', array(
-		    				'widget'=>'single_text',
-		    				'label'=>'ExDiv Date',
-		    				'data'=>$dividend->getExDivDate(),
-		    				'format'=>'dd/MM/yyyy',
-		    				'attr'=>array(
-		    					'class'=>'dateInput',
-		    					'size'=>10
-		    				)
-		    			))
-		    			->add('Amount', 'text', array(
-		    				'label'=>'Amount'.(($company->getCurrency()=='GBP')?(''):(' ('.$company->getCurrency().')')),
-		    				'data'=>$dividend->getAmount()
-		    			))
-		    			->add('PaymentDate', 'date', array(
-		    				'widget'=>'single_text',
-		    				'label'=>'Payment Date',
-		    				'data'=>$dividend->getPaymentDate(),
-		    				'format'=>'dd/MM/yyyy',
-		    				'empty_value'=>null,
-		    				'required'=>false,
-		    				'attr'=>array(
-		    					'class'=>'dateInput',
-		    					'size'=>10
-		    				)
-		    			))
-		    			->add('PaymentRate', 'text', array(
-		    				'label'=>'Payment Exchange Rate',
-		    				'required'=>false,
-		    				'read_only'=>($company->getCurrency()=='GBP'),
-		    				'data'=>$dividend->getPaymentRate()
-		    			))
-		    			->add('Special', 'choice', array(
-		    				'choices'=>array(0=>'No', 1=>'Yes'),
-		    				'label'=>'Special Dividend',
-		    				'expanded'=>false,
-		    				'multiple'=>false,
-		    				'data'=>$dividend->getSpecial()
-		    			))
-		    			->add('save', 'submit')
-		    			->getForm();
-		    	
+		    		$form2=$this->createForm(new DividendDetailsType($id, $company, $dividend));
 		    		$form2->handleRequest($request);
 		    	
 		    		$validator=$this->get('validator');
@@ -1220,7 +1052,6 @@ class DefaultController extends Controller
 		    							$em = $this->getDoctrine()->getManager();
 
 		    							$dividend->setCompanyId($form2->get('CompanyId')->getData());
-		    							$dividend->setCreatedDate(new \DateTime("now"));
 		    							$dividend->setDeclDate($form2->get('DeclDate')->getData());
 		    							$dividend->setExDivDate($form2->get('ExDivDate')->getData());
 		    							$dividend->setAmount($form2->get('Amount')->getData());
@@ -1298,20 +1129,71 @@ class DefaultController extends Controller
 		    	}
     		}
     	}
-
+    	
+   		if (!$request->isMethod('POST') && null !== ($request->getSession()->get('is_comp'))) {
+   			$data=$request->getSession()->get('is_comp');
+   			$ok=true;
+   			if (isset($data['updated'])) {
+   				if ($data['updated'] < date('Y-m-d H:i:s', time()-$this->searchTime)) {
+   					$ok=false;
+   				}
+   			}
+   			if ($ok) {
+   				if (isset($data['c'])) {
+   					$searchCompany=$data['c'];
+   				}
+   				if (isset($data['sc'])) {
+   					$searchSector=$data['sc'];
+   				}
+   				if (isset($data['l'])) {
+   					$searchList=$data['l'];
+   				}
+   			} else {
+   				$request->getSession()->remove('is_comp');
+   			}
+   		}
+    		 
+		$qb=$em->createQueryBuilder()
+			->select('c.id')
+			->addSelect('c.code')
+			->addSelect('c.name')
+			->addSelect('c.sector')
+			->addSelect('c.currency')
+			->from('InvestShareBundle:Company', 'c')
+			->orderBy('c.name');
+   		
+   		$results=$qb->getQuery()->getArrayResult();
+   		
+   		$companyNames=array();
+   		$dividends=array();
+   			
+   		if (count($results)) {
+   			foreach ($results as $result) {
+   				$searchCompanies[$result['id']]=$result['name'];
+   				if ($result['sector']) {
+   					$searchSectors[$result['sector']]=$result['sector'];
+   				}
+   			}
+   			ksort($searchSectors);
+   		}
+   				 
+    	$searchForm=$this->createForm(new CompanySearchType($this->generateUrl('invest_share_company'), $searchCompany, $searchCompanies, $searchSector, $searchSectors, $searchList, $searchLists));
+    	$searchForm->handleRequest($request);
+    	 
     	if ($request->isMethod('POST')) {
-			if (isset($_POST['form']['company']) && $_POST['form']['company']) {
-				$searchCompany=$_POST['form']['company'];
+    		$formData=$searchForm->getData();
+			if (isset($formData['company']) && $formData['company']) {
+				$searchCompany=$formData['company'];
 			}
-			if (isset($_POST['form']['sector']) && $_POST['form']['sector']) {
-				$searchSector=$_POST['form']['sector'];
+			if (isset($formData['sector']) && $formData['sector']) {
+				$searchSector=$formData['sector'];
 			}
-			if (isset($_POST['form']['list']) && $_POST['form']['list']) {
-				$searchList=$_POST['form']['list'];
+			if (isset($formData['list']) && $formData['list']) {
+				$searchList=$formData['list'];
 			}
 			$pageStart=0;
 				
-			$this->getRequest()->getSession()->set('is_comp',
+			$request->getSession()->set('is_comp',
 				array(
 					'c'=>$searchCompany,
 					'sc'=>$searchSector,
@@ -1319,31 +1201,38 @@ class DefaultController extends Controller
 					'updated'=>date('Y-m-d H:i:s'
 				)
 			));
-		} else {
-			if (null !== ($this->getRequest()->getSession()->get('is_comp'))) {
-				$data=$this->getRequest()->getSession()->get('is_comp');
-				$ok=true;
-				if (isset($data['updated'])) {
-					if ($data['updated'] < date('Y-m-d H:i:s', time()-$this->searchTime)) {
-						$ok=false;
+			
+			return $this->redirect($this->generateUrl('invest_share_company'));
+			
+		}
+		 
+		if (count($results)) {
+			foreach ($results as $result) {
+				$cId=$result['id'];
+		
+				$d=$functions->getDividendsForCompany($result['code'], true);
+				if ($d && count($d)) {
+					foreach ($d as $k=>$v) {
+						$w1=$v['exDivDate']->getTimestamp();
+						$w2=time()+$this->dividendWarningDays*24*60*60;
+						$warning=(($w1>=time() && $w1<$w2)?(1):(0));
+		
+						$d[$k]['warning']=$warning;
+		
+						if ($warning) {
+							$d[$k]['CompanyCode']=$result['code'];
+							$d[$k]['CompanyName']=$result['name'];
+							$d[$k]['Currency']=$result['currency'];
+		
+							$warnings[]=$d[$k];
+						}
+							
+						$dividends[$cId]=$d;
 					}
-				}
-				if ($ok) {
-					if (isset($data['c'])) {
-						$searchCompany=$data['c'];
-					}
-					if (isset($data['sc'])) {
-						$searchSector=$data['sc'];
-					}
-					if (isset($data['l'])) {
-						$searchList=$data['l'];
-					}
-				} else {
-					$this->getRequest()->getSession()->remove('is_comp');
 				}
 			}
 		}
-    	
+		
 		$searchArray=array();
 		if ($searchCompany > 0) {
 			$searchArray['id']=$searchCompany;
@@ -1354,109 +1243,16 @@ class DefaultController extends Controller
     	if ($searchList) {
 			$searchArray['list']=$searchList;
 		}
-		
-		$searchCompanies=array();
-		$searchSectors=array();
-		$searchLists=array(
-			'FTSE100'=>'FTSE 100',
-			'FTSE250'=>'FTSE 250',
-			'FTSESmallCap'=>'FTSE Small Cap'
-		);
+				
 
-		$qb=$em->createQueryBuilder()
-			->select('c.id')
-			->addSelect('c.code')
-			->addSelect('c.name')
-			->addSelect('c.sector')
-			->addSelect('c.currency')
-			->from('InvestShareBundle:Company', 'c')
-			->orderBy('c.name');
-		
-		$results=$qb->getQuery()->getArrayResult();
-
-    	$companyNames=array();
-    	$dividends=array();
-    	
-    	if (count($results)) {
-    		foreach ($results as $result) {
-    			$searchCompanies[$result['id']]=$result['name'];
-    			if ($result['sector']) {
-    				$searchSectors[$result['sector']]=$result['sector'];
-    			}
-    		    			
-    			$cId=$result['id'];
-
-    			$d=$functions->getDividendsForCompany($result['code'], true);
-    			if ($d && count($d)) {
-					foreach ($d as $k=>$v) {
-						$w1=$v['exDivDate']->getTimestamp();
-						$w2=time()+$this->dividendWarningDays*24*60*60;
-						$warning=(($w1>=time() && $w1<$w2)?(1):(0));
-						
-    					$d[$k]['warning']=$warning;
-    						
-						if ($warning) {
-							$d[$k]['CompanyCode']=$result['code'];
-							$d[$k]['CompanyName']=$result['name'];
-							$d[$k]['Currency']=$result['currency'];
-
-							$warnings[]=$d[$k];
-						}
-    					
-						$dividends[$cId]=$d;
-					}
-    			}
-    		}
-    		ksort($searchSectors);
-    	}
-
-    	$empty_array=array('0'=>'All');
-		$searchForm=$this->createFormBuilder()
-			->setAction($this->generateUrl('invest_share_company'))
-    		->add('company', 'choice', array(
-    			'choices'=>$empty_array+$searchCompanies,
-    			'label'=>'Company : ',
-		    	'data'=>$searchCompany,
-    			'attr'=>array(
-    				'style'=>'width: 200px'
-    			)
-		    ))
-    		->add('sector', 'choice', array(
-    			'choices'=>$empty_array+$searchSectors,
-    			'label'=>'Sector : ',
-		    	'data'=>$searchSector,
-    			'attr'=>array(
-    				'style'=>'width: 200px'
-    			)
-    		))
-    		->add('list', 'choice', array(
-    			'choices'=>$empty_array+$searchLists,
-    			'label'=>'List : ',
-		    	'data'=>$searchList,
-    			'attr'=>array(
-    				'style'=>'width: 100px'
-    			)
-    		))
-    		->add('search', 'submit')
-		    ->getForm();
-    	
-/*    		
-		$results=$this->getDoctrine()
-    		->getRepository('InvestShareBundle:Company')
-    		->findBy(
-    			$searchArray,
-    			array(
-    				'name'=>'ASC'
-    			),
-    			$this->pager,
-    			$pageStart
-    		);
-*/
 		$query='SELECT SQL_CALC_FOUND_ROWS `id`,`Code`,`Name`,`Sector`,`Frequency`,`Currency` FROM `Company`';
 		if (count($searchArray)) {
-			$query.=' WHERE 1';
+			$q1=array();
 			foreach ($searchArray as $k=>$v) {
-				$query.=' AND (`'.$k.'`="'.$v.'")';
+				$q1[]='`'.$k.'`="'.$v.'"';
+			}
+			if (count($q1)) {
+				$query.=' WHERE ('.implode(') AND (', $q1).')';
 			}
 		}
 		$query.=' ORDER BY `Name` LIMIT '.($pageStart*$this->pager).','.($this->pager);
@@ -1557,109 +1353,60 @@ class DefaultController extends Controller
     	$companyNames=array();
     	$codes=array();
     	$summary=array();
+    	$types=array();
+    	$positions=array();
 
     	$searchType=null;
-    	$searchDateFrom=new \DateTime(date('Y-m-d', mktime(0, 0, 0, date('m')-1, date('d'), date('Y'))));
-   		$searchDateTo=new \DateTime(date('Y-m-d', mktime(0, 0, 0, date('m'), date('d'), date('Y'))));
+    	$searchDateFrom=new \DateTime('-1 month'); // new \DateTime(date('Y-m-d', mktime(0, 0, 0, date('m')-1, date('d'), date('Y'))));
+   		$searchDateTo=new \DateTime('now'); // new \DateTime(date('Y-m-d', mktime(0, 0, 0, date('m'), date('d'), date('Y'))));
     	$searchLimit=$this->dealsLimit;
     	$searchCompany=null;
     	$searchPosition=null;
     	$searchFilter=1;
     	
     	$request=$this->getRequest();
-    	$functions=$this->get('invest.share.functions');
-    	
-    	if ($request->isMethod('POST')) {
-    		if (isset($_POST['form']['type']) && $_POST['form']['type']) {
-    			$searchType=$_POST['form']['type'];
-    		}
-    	    if (isset($_POST['form']['company']) && $_POST['form']['company']) {
-    			$searchCompany=$_POST['form']['company'];
-    		}
-    		if (isset($_POST['form']['dateFrom']) && $_POST['form']['dateFrom']) {
-    			$searchDateFrom=\DateTime::createFromFormat('d/m/Y', $_POST['form']['dateFrom']);
-    		}
-    		if (isset($_POST['form']['dateTo']) && $_POST['form']['dateTo']) {
-    			$searchDateTo=\DateTime::createFromFormat('d/m/Y', $_POST['form']['dateTo']);
-    		}
-    	    if (isset($_POST['form']['position']) && $_POST['form']['position']) {
-    			$searchPosition=$_POST['form']['position'];
-    		}
-    		if (isset($_POST['form']['limit']) && $_POST['form']['limit']) {
-    			$searchLimit=$_POST['form']['limit'];
-    		}
-    		if (isset($_POST['form']['filter'])) {
-    			$searchFilter=$_POST['form']['filter'];
-    		}
-    		
-    		$this->getRequest()->getSession()->set('is_ddeals', array(
-    				't'=>$searchType,
-    				'c'=>$searchCompany,
-    				'df'=>$searchDateFrom,
-    				'dt'=>$searchDateTo,
-    				'p'=>$searchPosition,
-    				'l'=>$searchLimit,
-    				'f'=>$searchFilter,
-    				'updated'=>date('Y-m-d H:i:s')));
-    	} else {
-    		if (null !== ($this->getRequest()->getSession()->get('is_ddeals'))) {
-    			$data=$this->getRequest()->getSession()->get('is_ddeals');
-    			$ok=true;
-    			if (isset($data['updated'])) {
-    				 
-    				if ($data['updated'] < date('Y-m-d H:i:s', time()-$this->searchTime)) {
-    					$ok=false;
-    				}
+    	if (!$request->isMethod('POST') && null !== ($request->getSession()->get('is_ddeals'))) {
+    		$data=$request->getSession()->get('is_ddeals');
+    		$ok=true;
+    		if (isset($data['updated'])) {
+    				
+    			if ($data['updated'] < date('Y-m-d H:i:s', time()-$this->searchTime)) {
+    				$ok=false;
     			}
-    			if ($ok) {
-    				if (isset($data['t'])) {
-    					$searchType=$data['t'];
-    				}
-    			    if (isset($data['c'])) {
-    					$searchCompany=$data['c'];
-    				}
-    				if (isset($data['df'])) {
-    					$searchDateFrom=$data['df'];
-    				}
-    				if (isset($data['dt'])) {
-    					$searchDateTo=$data['dt'];
-    				}
-    				if (isset($data['p'])) {
-    					$searchPosition=$data['p'];
-    				}
-    			    if (isset($data['l'])) {
-    					$searchLimit=$data['l'];
-    				}
-    			    if (isset($data['f'])) {
-    					$searchFilter=$data['f'];
-    				}
+    		}
+    		if ($ok) {
+    			if (isset($data['t'])) {
+    				$searchType=$data['t'];
+    			}
+    			if (isset($data['c'])) {
+    				$searchCompany=$data['c'];
+    			}
+    			if (isset($data['df'])) {
+    				$searchDateFrom=$data['df'];
+    			}
+    			if (isset($data['dt'])) {
+    				$searchDateTo=$data['dt'];
+    			}
+    			if (isset($data['p'])) {
+    				$searchPosition=$data['p'];
+    			}
+    			if (isset($data['l'])) {
+    				$searchLimit=$data['l'];
     			} else {
-    				$this->getRequest()->getSession()->remove('is_ddeals');
+    				$searchLimit=null;
     			}
+    			if (isset($data['f'])) {
+    				$searchFilter=$data['f'];
+    			} else {
+    				$searchFilter=0;
+    			}
+    		} else {
+    			$request->getSession()->remove('is_ddeals');
     		}
     	}
-    	 
-    	$trades=$functions->getTradesData(null, null, null, null, null, null);
     	
-       	if (count($trades)) {
-	   		foreach ($trades as $t) {
-	   			if ($t['reference2'] == '') {
-	   				if (!isset($companyShares[$t['companyCode']])) {
-	   					$companyShares[$t['companyCode']]=0;
-	   				}
-	   				$companyShares[$t['companyCode']]+=$t['quantity1'];
-	   			}
-	   		}
-   		}
-
-   		$companyNames=$functions->getCompanyNames(($searchFilter)?(true):(false));
-
-   		$em=$this->getDoctrine()->getManager();
-   		
-   		$types=array();
-   		
-   		$positions=array();
-   		
+    	$functions=$this->get('invest.share.functions');
+    	$em=$this->getDoctrine()->getManager();   		
    		$qb=$em->createQueryBuilder()
    			->select('dd.type')
    			->addSelect('dd.position')
@@ -1678,6 +1425,66 @@ class DefaultController extends Controller
    				}
    			}
    		}
+
+   		$companyNames=$functions->getCompanyNames(($searchFilter)?(true):(false));
+   		
+   		$searchForm=$this->createForm(new DealsSearchType($searchType, $types, $searchPosition, $positions, $searchCompany, $companyNames, $searchDateFrom, $searchDateTo, $searchLimit, $searchFilter));
+    	$searchForm->handleRequest($request);
+    	
+    	if ($request->isMethod('POST')) {
+    		$formData=$searchForm->getData();
+    		if (isset($formData['type']) && $formData['type']) {
+    			$searchType=$formData['type'];
+    		}
+    	    if (isset($formData['company']) && $formData['company']) {
+    			$searchCompany=$formData['company'];
+    		}
+    		if (isset($formData['dateFrom']) && $formData['dateFrom']) {
+    			$searchDateFrom=$formData['dateFrom'];
+    		}
+    		if (isset($formData['dateTo']) && $formData['dateTo']) {
+    			$searchDateTo=$formData['dateTo'];
+    		}
+    	    if (isset($formData['position']) && $formData['position']) {
+    			$searchPosition=$formData['position'];
+    		}
+    		if (isset($formData['limit']) && $formData['limit']) {
+    			$searchLimit=$formData['limit'];
+    		} else {
+    			$searchLimit=null;
+    		}
+    		if (isset($formData['filter'])) {
+    			$searchFilter=$formData['filter'];
+    		} else {
+    			$searchFilter=0;
+    		}
+    		
+    		$request->getSession()->set('is_ddeals', array(
+   				't'=>$searchType,
+   				'c'=>$searchCompany,
+   				'df'=>$searchDateFrom,
+   				'dt'=>$searchDateTo,
+   				'p'=>$searchPosition,
+   				'l'=>$searchLimit,
+   				'f'=>$searchFilter,
+   				'updated'=>date('Y-m-d H:i:s')));
+    		
+    		return $this->redirect($this->generateUrl('invest_share_ddeals')); 
+    	}
+    	 
+    	$trades=$functions->getTradesData(null, null, null, null, null, null);
+    	
+       	if (count($trades)) {
+	   		foreach ($trades as $t) {
+	   			if ($t['reference2'] == '') {
+	   				if (!isset($companyShares[$t['companyCode']])) {
+	   					$companyShares[$t['companyCode']]=0;
+	   				}
+	   				$companyShares[$t['companyCode']]+=$t['quantity1'];
+	   			}
+	   		}
+   		}
+
    		 
     	if (count($companyNames)) {
     		$qb2=$em->createQueryBuilder()
@@ -1686,8 +1493,11 @@ class DefaultController extends Controller
     			->from('InvestShareBundle:DirectorsDeals', 'dd')
     			->where('dd.code IN (\''.implode('\',\'', array_keys($companyNames)).'\')')
     			->andWhere('dd.dealDate BETWEEN \''.$searchDateFrom->format('y-m-d').'\' AND \''.$searchDateTo->format('Y-m-d').'\'')
-    			->groupBy('dd.code')
-    			->having('Shares>='.$searchLimit);
+    			->groupBy('dd.code');
+
+    		if ($searchLimit) {
+    			$qb2->having('Shares>='.$searchLimit);
+    		}
     		
     		$results=$qb2->getQuery()->getArrayResult();
 
@@ -1747,79 +1557,7 @@ class DefaultController extends Controller
     			}
     		}
     	}
-
-    	$empty_array=array();
-    	$empty_array['0']='All';
-    	 
-		$searchForm=$this->createFormBuilder()
-			->add('type', 'choice', array(
-				'label'=>'Type : ',
-				'choices'=>$empty_array+$types,
-				'data'=>$searchType,
-				'required'=>true,
-			))
-			->add('position', 'choice', array(
-				'label'=>'Position : ',
-				'choices'=>$empty_array+$positions,
-				'data'=>$searchPosition,
-				'required'=>true,
-			    'attr'=>array(
-		    		'style'=>'width: 80px'
-			    )
-			))
-			->add('company', 'choice', array(
-				'label'=>'Company : ',
-				'choices'=>($empty_array+$companyNames),
-				'data'=>$searchCompany,
-				'required'=>true,
-			    'attr'=>array(
-		    		'style'=>'width: 120px'
-			    )
-			))
-			->add('dateFrom', 'date', array(
-    			'widget'=>'single_text',
-    			'label'=>'Date : ',
-    			'data'=>$searchDateFrom,
-			    'format'=>'dd/MM/yyyy',
-			    'attr'=>array(
-		    		'class'=>'dateInput',
-			    	'size'=>10,
-		    		'style'=>'width: 90px'
-			    )
-    		))
-    		->add('dateTo', 'date', array(
-    			'widget'=>'single_text',
-    			'label'=>' - ',
-    			'data'=>$searchDateTo,
-			    'format'=>'dd/MM/yyyy',
-			    'attr'=>array(
-		    		'class'=>'dateInput',
-			    	'size'=>10,
-		    		'style'=>'width: 90px'
-			    )
-    		))
-			->add('limit', 'text', array(
-				'label'=>'Limit : ',
-				'data'=>$searchLimit,
-				'attr'=>array(
-					'size'=>10,
-					'style'=>'width: 80px'
-				)
-			))
-			->add('filter', 'choice', array(
-				'label'=>'Filter : ',
-				'choices'=>$empty_array+array('1'=>'Only hold'),
-				'data'=>$searchFilter,
-				'required'=>true,
-			    'attr'=>array(
-		    		'style'=>'width: 80px'
-			    )
-			))
-			->add('search', 'submit', array(
-				'label'=>'Search'
-			))
-			->getForm();
-    	    	
+    	
     	return $this->render('InvestShareBundle:Default:directordeals.html.twig', array(
     		'searchForm'	=> $searchForm->createView(),
     		'deals' 		=> $deals,
@@ -1841,70 +1579,40 @@ class DefaultController extends Controller
    		$searchDateTo=new \DateTime(date('Y-m-d', mktime(0, 0, 0, date('m'), date('d')+13, date('Y'))));
     	$searchCompany=null;
     	$searchFilter=null;
-    	
+    	$em=$this->getDoctrine()->getManager();
     	$request=$this->getRequest();
-
-    	if ($request->isMethod('POST')) {
-    		if (isset($_POST['form']['type']) && $_POST['form']['type']) {
-    			$searchType=$_POST['form']['type'];
-    		}
-    	    if (isset($_POST['form']['company']) && $_POST['form']['company']) {
-    			$searchCompany=$_POST['form']['company'];
-    		}
-    		if (isset($_POST['form']['dateFrom']) && $_POST['form']['dateFrom']) {
-    			$searchDateFrom=\DateTime::createFromFormat('d/m/Y', $_POST['form']['dateFrom']);
-    		}
-    		if (isset($_POST['form']['dateTo']) && $_POST['form']['dateTo']) {
-    			$searchDateTo=\DateTime::createFromFormat('d/m/Y', $_POST['form']['dateTo']);
-    		}
-    		if (isset($_POST['form']['filter']) && $_POST['form']['filter']) {
-    			$searchFilter=$_POST['form']['filter'];
-    		}
-    		
-    		$this->getRequest()->getSession()->set('is_diary', array(
-    				't'=>$searchType,
-    				'c'=>$searchCompany,
-    				'df'=>$searchDateFrom,
-    				'dt'=>$searchDateTo,
-    				'f'=>$searchFilter,
-    				'updated'=>date('Y-m-d H:i:s')));
-    	} else {
-    		if (null !== ($this->getRequest()->getSession()->get('is_diary'))) {
-    			$data=$this->getRequest()->getSession()->get('is_diary');
-    			$ok=true;
-    			if (isset($data['updated'])) {
-    				 
-    				if ($data['updated'] < date('Y-m-d H:i:s', time()-$this->searchTime)) {
-    					$ok=false;
-    				}
+    	
+    	if (!$request->isMethod('POST') && null !== ($request->getSession()->get('is_diary'))) {
+    		$data=$request->getSession()->get('is_diary');
+    		$ok=true;
+    		if (isset($data['updated'])) {
+    				
+    			if ($data['updated'] < date('Y-m-d H:i:s', time()-$this->searchTime)) {
+    				$ok=false;
     			}
-    			if ($ok) {
-    				if (isset($data['t'])) {
-    					$searchType=$data['t'];
-    				}
-    			    if (isset($data['c'])) {
-    					$searchCompany=$data['c'];
-    				}
-    				if (isset($data['df'])) {
-    					$searchDateFrom=$data['df'];
-    				}
-    				if (isset($data['dt'])) {
-    					$searchDateTo=$data['dt'];
-    				}
-    				if (isset($data['f'])) {
-    					$searchFilter=$data['f'];
-    				}
-    			} else {
-    				$this->getRequest()->getSession()->remove('is_diary');
+    		}
+    		if ($ok) {
+    			if (isset($data['t'])) {
+    				$searchType=$data['t'];
     			}
+    			if (isset($data['c'])) {
+    				$searchCompany=$data['c'];
+    			}
+    			if (isset($data['df'])) {
+    				$searchDateFrom=$data['df'];
+    			}
+    			if (isset($data['dt'])) {
+    				$searchDateTo=$data['dt'];
+    			}
+    			if (isset($data['f'])) {
+    				$searchFilter=$data['f'];
+    			}
+    		} else {
+    			$request->getSession()->remove('is_diary');
     		}
     	}
-    	 
-    	$em=$this->getDoctrine()->getManager();
-    	$functions=$this->get('invest.share.functions');
-   		$companyNames=$functions->getCompanyNames(($searchFilter)?(true):(false));
-
-   		$types=array();
+  
+       	$types=array();
    		$types['']='All';
    		
    		$qb=$em->createQueryBuilder()
@@ -1921,7 +1629,41 @@ class DefaultController extends Controller
    				$types[$result['type']]=ucwords($result['type']);
    			}
    		}
-   		
+   		$functions=$this->get('invest.share.functions');
+   		$companies=$functions->getCompanyNames(($searchFilter)?(true):(false));
+   		 
+   		$searchForm=$this->createForm(new DiarySearchType($searchType, $types, $searchCompany, $companies, $searchDateFrom, $searchDateTo, $searchFilter));
+    	$searchForm->handleRequest($request);
+    	
+    	if ($request->isMethod('POST')) {
+    		$formData=$searchForm->getData();
+    		if (isset($formData['type']) && $formData['type']) {
+    			$searchType=$formData['type'];
+    		}
+    	    if (isset($formData['company']) && $formData['company']) {
+    			$searchCompany=$formData['company'];
+    		}
+    		if (isset($formData['dateFrom']) && $formData['dateFrom']) {
+    			$searchDateFrom=$formData['dateFrom'];
+    		}
+    		if (isset($formData['dateTo']) && $formData['dateTo']) {
+    			$searchDateTo=$formData['dateTo'];
+    		}
+    		if (isset($formData['filter']) && $formData['filter']) {
+    			$searchFilter=$formData['filter'];
+    		}
+    		
+    		$request->getSession()->set('is_diary', array(
+   				't'=>$searchType,
+   				'c'=>$searchCompany,
+   				'df'=>$searchDateFrom,
+   				'dt'=>$searchDateTo,
+   				'f'=>$searchFilter,
+   				'updated'=>date('Y-m-d H:i:s')));
+    		
+    		return $this->redirect($this->generateUrl('invest_share_diary'));
+    	}
+
     	$qb2=$em->createQueryBuilder()
     		->select('d.code')
     		->addSelect('d.type')
@@ -1931,12 +1673,14 @@ class DefaultController extends Controller
     		
     		->from('InvestShareBundle:Diary', 'd')
     		->leftJoin('InvestShareBundle:Company', 'c', 'WITH', 'd.code=c.code')
-    		->where('d.date BETWEEN \''.$searchDateFrom->format('Y-m-d').'\' AND \''.$searchDateTo->format('Y-m-d').'\'')
+    		->where('d.date BETWEEN :date1 AND :date2')
     		->orderBy('d.code', 'ASC')
-    		->addOrderBy('d.date', 'ASC');
+    		->addOrderBy('d.date', 'ASC')
+    		->setParameter('date1', $searchDateFrom->format('Y-m-d'))
+    		->setParameter('date2', $searchDateTo->format('Y-m-d'));
     		
     	if ($searchFilter) {
-    		$qb2->andWhere('c.code IN (\''.implode('\',\'', array_keys($companyNames)).'\')');
+    		$qb2->andWhere('c.code IN (\''.implode('\',\'', array_keys($companies)).'\')');
     	}
     	if ($searchCompany) {
     		$qb2->andWhere('d.code=:code')
@@ -1947,64 +1691,6 @@ class DefaultController extends Controller
     			->setParameter('type', $searchType);
     	}
     	$diary=$qb2->getQuery()->getArrayResult();
-
-   		$empty_array=array();
-   		$empty_array['0']='All';
-   		
-		$searchForm=$this->createFormBuilder()
-			->add('type', 'choice', array(
-				'label'=>'Type : ',
-				'choices'=>$types,
-				'data'=>$searchType,
-				'required'=>false,
-			    'attr'=>array(
-		    		'style'=>'width: 150px'
-			    )
-			))
-			->add('filter', 'choice', array(
-				'label'=>'Filter : ',
-				'choices'=>$empty_array+array('1'=>'Only hold'),
-				'data'=>$searchFilter,
-				'required'=>true,
-			    'attr'=>array(
-		    		'style'=>'width: 80px'
-			    )
-			))
-			->add('company', 'choice', array(
-				'label'=>'Company : ',
-				'choices'=>$empty_array+$companyNames,
-				'data'=>$searchCompany,
-				'required'=>true,
-			    'attr'=>array(
-		    		'style'=>'width: 150px'
-			    )
-			))
-			->add('dateFrom', 'date', array(
-    			'widget'=>'single_text',
-    			'label'=>'Date : ',
-    			'data'=>$searchDateFrom,
-			    'format'=>'dd/MM/yyyy',
-			    'attr'=>array(
-		    		'class'=>'dateInput',
-			    	'size'=>10,
-		    		'style'=>'width: 90px'
-			    )
-    		))
-    		->add('dateTo', 'date', array(
-    			'widget'=>'single_text',
-    			'label'=>' - ',
-    			'data'=>$searchDateTo,
-			    'format'=>'dd/MM/yyyy',
-			    'attr'=>array(
-		    		'class'=>'dateInput',
-			    	'size'=>10,
-		    		'style'=>'width: 90px'
-			    )
-    		))
-			->add('search', 'submit', array(
-				'label'=>'Search'
-			))
-			->getForm();
     	    	
     	return $this->render('InvestShareBundle:Default:diary.html.twig', array(
     		'searchForm'	=> $searchForm->createView(),
@@ -2241,25 +1927,7 @@ class DefaultController extends Controller
 /*
  * full form
  */
-					$form=$this->createFormBuilder($trade)
-			    		->add('id', 'hidden', array(
-			    			'data'=>$trade->getId()
-			    		))
-			    		->add('portfolioid', 'choice', array(
-			    			'choices'=>$portfolios,
-			    			'data'=>$trade->getPortfolioId()
-			    		))
-			    		->add('companyId', 'choice', array(
-			    			'choices'=>$companies,
-			    			'data'=>$trade->getCompanyId()
-			    		))
-			    		->add('pe_ratio', 'text', array(
-			    			'data'=>$trade->getPERatio(),
-			    			'required'=>false
-			    		))
-			    		->add('save', 'submit')
-			    		->getForm();
-			    	
+					$form=$this->createForm(new TradeType($trade, $portfolios, $companies));
 			    	$form->handleRequest($request);
 			    	
 			    	$validator=$this->get('validator');
@@ -2295,8 +1963,8 @@ class DefaultController extends Controller
 								    			
 							    		if ($trade->getId()) {
 					   						$this->get('session')->getFlashBag()->add(
-					   								'notice',
-					   								'Data saved'
+				   								'notice',
+				   								'Data saved'
 					   						);
 					   						
 					   						return $this->redirect($this->generateUrl('invest_share_trade'));
@@ -2326,8 +1994,8 @@ class DefaultController extends Controller
 				   					 
 				   					if ($trade->getId()) {
 				   						$this->get('session')->getFlashBag()->add(
-				   								'notice',
-				   								'Data updated'
+			   								'notice',
+			   								'Data updated'
 				   						);
 				   						
 				   						return $this->redirect($this->generateUrl('invest_share_trade'));
@@ -2351,70 +2019,7 @@ class DefaultController extends Controller
 /*
  * 2nd form, only "Buy" details
  */
-					$form2=$this->createFormBuilder($tradeTransaction)
-			    		->add('id', 'hidden', array(
-			    			'data'=>$tradeTransaction->getId()
-			    		))
-			    		->add('portfolioId', 'choice', array(
-							'label'=>'Portfolio',
-			    			'choices'=>(($trade->getPortfolioId())?(array($portfolios[$trade->getPortfolioId()])):($portfolios)),
-			    			'data'=>$trade->getPortfolioId(),
-			    			'mapped'=>false,
-			    			'read_only'=>(($trade->getPortfolioId())?true:false)
-			    		))
-			    		->add('companyId', 'choice', array(
-			    			'label'=>'Company',
-			    			'choices'=>(($trade->getCompanyId())?(array($companies[$trade->getCompanyId()])):($companies)),
-			    			'data'=>$trade->getCompanyId(),
-			    			'mapped'=>false,
-			    			'read_only'=>(($trade->getCompanyId())?true:false)
-			    		))
-			    		->add('type', 'choice', array(
-			    			'choices'=>(($tradeTransaction->getId())?($tradeTransaction->getType()?(array(1=>'Sell')):(array(0=>'Buy'))):(array(0=>'Buy', 1=>'Sell'))),
-			    			'data'=>$tradeTransaction->getType(),
-			    			'read_only'=>true
-			    		))
-			    		->add('tradeDate', 'date', array(
-			    			'label'=>'Trade date',
-			    			'widget'=>'single_text',
-			    			'data'=>$tradeTransaction->getTradeDate(),
-			    			'format'=>'dd/MM/yyyy',
-			    			'attr'=>array(
-		    					'class'=>'dateInput',
-			    				'size'=>10
-							)
-			    		))
-			    		->add('settleDate', 'date', array(
-			    			'label'=>'Settle date',
-			    			'widget'=>'single_text',
-			    			'data'=>$tradeTransaction->getSettleDate(),
-			    			'format'=>'dd/MM/yyyy',
-			    			'attr'=>array(
-		    					'class'=>'dateInput',
-			    				'size'=>10
-							)
-			    		))
-			    		->add('reference', 'text', array(
-			    			'data'=>$tradeTransaction->getReference()
-			    		))
-			    		->add('description', 'text', array(
-			    			'required'=>false,
-			    			'data'=>$tradeTransaction->getDescription()
-			    		))
-			    		->add('quantity', 'text', array(
-			    			'data'=>$tradeTransaction->getQuantity()
-			    		))
-			    		->add('unitPrice', 'text', array(
-			    			'label'=>'Unit cost (p)',
-			    			'data'=>$tradeTransaction->getUnitPrice()
-			    		))
-			    		->add('cost', 'text', array(
-			    			'label'=>'Cost (£)',
-			    			'data'=>$tradeTransaction->getCost()
-			    		))
-			    		->add('save', 'submit')
-			    		->getForm();
-			    	
+					$form2=$this->createForm(new TradeDetailsType($trade, $tradeTransaction, $portfolios, $companies));
 			    	$form2->handleRequest($request);
 			    	
 			    	$validator=$this->get('validator');
@@ -2456,8 +2061,8 @@ class DefaultController extends Controller
 		   					if ($tradeTransaction->getId()) {
 		   						
 		   						$this->get('session')->getFlashBag()->add(
-		   								'notice',
-		   								'Data updated'
+	   								'notice',
+	   								'Data updated'
 		   						);
 		   						
 		   						return $this->redirect($this->generateUrl('invest_share_trade'));
@@ -2479,74 +2084,7 @@ class DefaultController extends Controller
  * 3rd form, only sell details
  */
 
-					$form3=$this->createFormBuilder($tradeTransaction)
-			    		->add('id', 'hidden', array(
-			    			'data'=>$tradeTransaction->getId()
-			    		))
-			    		->add('tradeId', 'hidden', array(
-			    			'data'=>$trade->getId()
-			    		))
-			    		->add('type', 'choice', array(
-			    			'choices'=>array(1=>'Sell'),
-			    			'data'=>$tradeTransaction->getType(),
-			    			'read_only'=>true
-			    		))
-			    		->add('portfolioName', 'text', array(
-			    			'data'=>$portfolios[$trade->getPortfolioId()],
-			    			'disabled'=>true,
-			    			'mapped'=>false
-			    		))
-			    		->add('companyName', 'text', array(
-			    			'data'=>$companies[$trade->getCompanyId()],
-			    			'disabled'=>true,
-			    			'mapped'=>false
-			    		))
-			    		->add('tradeDate', 'date', array(
-			    			'widget'=>'single_text',
-			    			'data'=>$tradeTransaction->getTradeDate(),
-			    			'format'=>'dd/MM/yyyy',
-			    			'empty_value'=>null,
-			    			'required'=>false,
-			    			'attr'=>array(
-		    					'class'=>'dateInput',
-			    				'size'=>10
-			    			)
-			    		))
-			    		->add('settleDate', 'date', array(
-			    			'label'=>'Settle date',
-			    			'widget'=>'single_text',
-			    			'data'=>$tradeTransaction->getSettleDate(),
-			    			'format'=>'dd/MM/yyyy',
-			    			'attr'=>array(
-		    					'class'=>'dateInput',
-			    				'size'=>10
-							)
-			    		))
-			    		->add('reference', 'text', array(
-			    			'data'=>$tradeTransaction->getReference()
-			    		))
-			    		->add('description', 'text', array(
-			    			'required'=>false,
-			    			'data'=>$tradeTransaction->getDescription()
-			    		))
-			    		->add('quantity', 'text', array(
-			    			'label'=>'Quantity',
-			    			'data'=>$tradeTransaction->getQuantity(),
-			    			'required'=>true
-			    		))
-			    		->add('unitPrice', 'text', array(
-			    			'label'=>'Unit Price (p)',
-			    			'data'=>$tradeTransaction->getUnitPrice(),
-			    			'required'=>true
-			    		))
-			    		->add('cost', 'text', array(
-			    			'label'=>'Cost (£)',
-			    			'data'=>$tradeTransaction->getCost(),
-			    			'required'=>true
-			    		))
-			    		->add('save', 'submit')
-						->getForm();
-					
+					$form3=$this->createForm(new TradeDetailsType($trade, $tradeTransaction, $portfolios, $companies));
 					$form3->handleRequest($request);
 					
 					$validator=$this->get('validator');
@@ -2642,32 +2180,76 @@ class DefaultController extends Controller
 			}
 		}
 
+
+		
+		if (!$request->isMethod('POST') && null !== ($request->getSession()->get('is_trade'))) {
+			$data=$request->getSession()->get('is_trade');
+			$ok=true;
+			if (isset($data['updated'])) {
+		
+				if ($data['updated'] < date('Y-m-d H:i:s', time()-$this->searchTime)) {
+					$ok=false;
+				}
+			}
+			if ($ok) {
+				if (isset($data['c'])) {
+					$searchCompany=$data['c'];
+				}
+				if (isset($data['p'])) {
+					$searchPortfolio=$data['p'];
+				}
+				if (isset($data['sc'])) {
+					$searchSector=$data['sc'];
+				}
+				if (isset($data['s'])) {
+					$searchSold=$data['s'];
+				}
+				if (isset($data['df'])) {
+					$searchDateFrom=$data['df'];
+				} else {
+					$searchDateFrom=null;
+				}
+				if (isset($data['dt'])) {
+					$searchDateTo=$data['dt'];
+				} else {
+					$searchDateTo=null;
+				}
+			} else {
+				$this->getRequest()->getSession()->remove('is_trade');
+			}
+			
+		}
+		
 /*
  * filter by company or portfolio
  */
+		$searchForm=$this->createForm(new TradeSearchType($this->generateUrl('invest_share_trade'), $companies, $searchCompany, $portfolios, $searchPortfolio, $sectors, $searchSector, $searchSold, $searchDateFrom, $searchDateTo));
+		$searchForm->handleRequest($request);
+		
 		if ($request->isMethod('POST')) {
-			if (isset($_POST['form']['company']) && $_POST['form']['company']) {
-				$searchCompany=$_POST['form']['company'];
+			$formData=$searchForm->getData();
+			if (isset($formData['company']) && $formData['company']) {
+				$searchCompany=$formData['company'];
 			}
-	    	if (isset($_POST['form']['portfolio']) && $_POST['form']['portfolio']) {
-				$searchPortfolio=$_POST['form']['portfolio'];
+	    	if (isset($formData['portfolio']) && $formData['portfolio']) {
+				$searchPortfolio=$formData['portfolio'];
 			}
-			if (isset($_POST['form']['sector']) && $_POST['form']['sector']) {
-				$searchSector=$_POST['form']['sector'];
+			if (isset($formData['sector']) && $formData['sector']) {
+				$searchSector=$formData['sector'];
 			}
-			if (isset($_POST['form']['sold']) && $_POST['form']['sold']) {
-				$searchSold=$_POST['form']['sold'];
+			if (isset($formData['sold']) && $formData['sold']) {
+				$searchSold=$formData['sold'];
 			}
-			if (isset($_POST['form']['dateFrom'])) {
-				if (strlen($_POST['form']['dateFrom'])) {
-					$searchDateFrom=date_create_from_format('d/m/Y', $_POST['form']['dateFrom']);
+			if (isset($formData['dateFrom'])) {
+				if (strlen($formData['dateFrom'])) {
+					$searchDateFrom=$formData['dateFrom'];
 				} else {
 					$searchDateFrom=null;
 				}
 			}
-			if (isset($_POST['form']['dateTo'])) {
-				if (strlen($_POST['form']['dateTo'])) {
-					$searchDateTo=date_create_from_format('d/m/Y', $_POST['form']['dateTo']);
+			if (isset($formData['dateTo'])) {
+				if (strlen($formData['dateTo'])) {
+					$searchDateTo=$formData['dateTo'];
 				} else {
 					$searchDateTo=null;
 				}
@@ -2684,44 +2266,9 @@ class DefaultController extends Controller
 					'updated'=>date('Y-m-d H:i:s'
 				)
 			));
-		} else {
-			if (null !== ($this->getRequest()->getSession()->get('is_trade'))) {
-				$data=$this->getRequest()->getSession()->get('is_trade');
-				$ok=true;
-				if (isset($data['updated'])) {
-
-					if ($data['updated'] < date('Y-m-d H:i:s', time()-$this->searchTime)) {
-						$ok=false;
-					}
-				}
-				if ($ok) {
-					if (isset($data['c'])) {
-						$searchCompany=$data['c'];
-					}
-					if (isset($data['p'])) {
-						$searchPortfolio=$data['p'];
-					}
-					if (isset($data['sc'])) {
-						$searchSector=$data['sc'];
-					}
-					if (isset($data['s'])) {
-						$searchSold=$data['s'];
-					}
-					if (isset($data['df'])) {
-						$searchDateFrom=$data['df'];
-					} else {
-						$searchDateFrom=null;
-					}
-					if (isset($data['dt'])) {
-						$searchDateTo=$data['dt'];
-					} else {
-						$searchDateTo=null;
-					}
-				} else {
-					$this->getRequest()->getSession()->remove('is_trade');
-				}
-			}
+			return $this->redirect($this->generateUrl('invest_share_trade'));
 		}
+		
 		
 		if ($searchCompany || $searchPortfolio || $searchSector) {
 			$find_array=array();
@@ -2778,74 +2325,7 @@ class DefaultController extends Controller
 /*
  * filters
  */
-			$empty_array=array('0'=>'All');
-			$searchForm=$this->createFormBuilder()
-				->setAction($this->generateUrl('invest_share_trade'))
-	    		->add('company', 'choice', array(
-	    			'choices'=>$empty_array+$companies,
-	    			'label'=>'Company : ',
-			    	'required'=>true,
-	    			'data'=>$searchCompany,
-	    			'attr'=>array(
-	    				'style'=>'width: 200px'
-	    			)
-			    ))
-	    		->add('portfolio', 'choice', array(
-	    			'choices'=>$empty_array+$portfolios,
-	    			'label'=>'Portfolio : ',
-	    			'required'=>true,
-	    			'data'=>$searchPortfolio,
-	    			'attr'=>array(
-	    				'style'=>'width: 200px'
-	    			)
-	    		))
-	    		->add('sector', 'choice', array(
-	    			'choices'=>$empty_array+$sectors,
-	    			'label'=>'Sector : ',
-	    			'required'=>true,
-			    	'data'=>$searchSector,
-	    			'attr'=>array(
-	    				'style'=>'width: 200px'
-	    			)
-	    		))
-			    ->add('sold', 'choice', array(
-	    			'choices'=>array(0=>'All', 1=>'Unsold', 2=>'Sold'),
-	    			'label'=>'Status : ',
-	    			'required'=>true,
-			    	'data'=>$searchSold,
-			    	'attr'=>array(
-			    		'style'=>'width: 80px'
-			    	)
-			    ))
-			    ->add('dateFrom', 'date', array(
-			    	'widget'=>'single_text',
-			    	'label'=>'Date:',
-			    	'format'=>'dd/MM/yyyy',
-			    	'required'=>false,
-			    	'data'=>((isset($searchDateFrom))?($searchDateFrom):(null)),
-			    	'empty_value'=>null,
-			    	'attr'=>array(
-			    		'class'=>'dateInput',
-			    		'style'=>'width: 100px'
-			    	)
-			    ))
-			    ->add('dateTo', 'date', array(
-			    	'widget'=>'single_text',
-			    	'format'=>'dd/MM/yyyy',
-			    	'label'=>'To:',
-			    	'required'=>false,
-			    	'data'=>((isset($searchDateTo))?($searchDateTo):(null)),
-			    	'empty_value'=>null,
-			    	'attr'=>array(
-			    		'class'=>'dateInput',
-			    		'style'=>'width: 100px'
-			    	)
-			    ))
-			    ->add('search', 'submit')
-			    ->getForm();
-			    	
-			$searchForm->handleRequest($request);
-			
+
 			$searchFormView=$searchForm->createView();
 		}
 
@@ -3184,25 +2664,7 @@ class DefaultController extends Controller
 /*
  * 1st form, add/edit portfolio
  */
-				$form=$this->createFormBuilder($portfolio)
-			    	->add('id', 'hidden', array(
-			    		'data'=>$portfolio->getId()
-			    	))
-			    	->add('name', 'text', array(
-			    		'label'=>'Name',
-			    		'data'=>$portfolio->getName()
-			    	))
-			    	->add('clientNumber', 'text', array(
-			    		'label'=>'Client Number',
-			    		'data'=>$portfolio->getClientNumber()
-			    	))
-			    	->add('family', 'text', array(
-			    		'label'=>'Number of family member',
-			    		'data'=>$portfolio->getFamily()
-			    	))
-			    	->add('save', 'submit')
-			    	->getForm();
-			    	
+				$form=$this->createForm(new PortfolioType($portfolio));
 			    $form->handleRequest($request);
 			    	
 			    $validator=$this->get('validator');
@@ -3290,38 +2752,7 @@ class DefaultController extends Controller
 */
 				
 				$formTitle='Debit/Credit Details';
-				$form2=$this->createFormBuilder($portfolioTransaction)
-					->add('id', 'hidden', array(
-						'data'=>$portfolioTransaction->getId()
-					))
-					->add('portfolioid', 'hidden', array(
-						'data'=>$portfolioTransaction->getPortfolioId()
-					))
-					->add('date', 'date', array(
-						'label'=>'Date',
-						'widget'=>'single_text',
-    					'format'=>'dd/MM/yyyy',
-						'data'=>$portfolioTransaction->getDate(),
-						'attr'=>array(
-		    				'class'=>'dateInput',
-							'size'=>10
-						)
-					))
-					->add('amount', 'text', array(
-						'label'=>'Amount',
-						'data'=>$portfolioTransaction->getAmount()
-					))
-			    	->add('reference', 'text', array(
-			    		'label'=>'Reference',
-			    		'data'=>$portfolioTransaction->getReference()
-			    	))
-					->add('description', 'text', array(
-			    		'label'=>'Description',
-			    		'data'=>$portfolioTransaction->getDescription()
-			    	))
-					->add('save', 'submit')
-					->getForm();
-					
+				$form2=$this->createForm(new PortfolioCreditDebitType($portfolioTransaction));
 				$form2->handleRequest($request);
 					
 				$validator=$this->get('validator');
@@ -3594,7 +3025,6 @@ class DefaultController extends Controller
 								if ($paymentDate < $exDivDate) {
 									$paymentDate=strtotime($values[$k+9].(date('Y')+1));
 								}
-								
 								$currency='GBP';
 								if (strpos($values[$k+5], '$') !== false) {
 									$currency='USD';
@@ -3626,46 +3056,55 @@ class DefaultController extends Controller
  * if the html code format is correct
  */
     					foreach ($result as $value) {
-    						$declarationDate=strtotime($value[7]);
-    						if ($declarationDate > time()) {
-    							$declarationDate=strtotime($value[7].' '.(date('Y')-1));
-    						}
-    						$exDivDate=strtotime($value[8]);
-    						if ($exDivDate < $declarationDate) {
-    							$exDivDate=strtotime($value[8].' '.(date('Y')+1));
-    						}
-    						if (isset($value[9])) {
-    							$paymentDate=strtotime($value[9]);
-    							if ($paymentDate < $exDivDate) {
-    								$paymentDate=strtotime($value[9].' '.(date('Y')+1));
-    							}
-    						} else {
-    							$paymentDate=0;
-    						}
+							$datePosition=-1;
+							$p=0;
+							while ($datePosition == -1 && $p<=count($value)) {
+								if (strpos($value[$p], '%') !== false) {
+									$datePosition=$p+1;
+								}
+								$p++;
+							}
+							if ($datePosition != -1) {
+	    						$declarationDate=strtotime($value[$datePosition]);
+	    						if ($declarationDate > time()) {
+	    							$declarationDate=strtotime($value[$datePosition].' '.(date('Y')-1));
+	    						}
+	    						$exDivDate=strtotime($value[$datePosition+1]);
+	    						if ($exDivDate < $declarationDate) {
+	    							$exDivDate=strtotime($value[$datePosition+1].' '.(date('Y')+1));
+	    						}
+								if (isset($value[$datePosition+2])) {
+	    							$paymentDate=strtotime($value[$datePosition+2]);
+	    							if ($paymentDate < $exDivDate) {
+	    								$paymentDate=strtotime($value[$datePosition+2].' '.(date('Y')+1));
+	    							}
+	    						} else {
+	    							$paymentDate=0;
+	    						}
 
-    						$currency='GBP';
-							if (isset($value[$k+5]) && strpos($value[$k+5], '$') !== false) {
-								$currency='USD';
-							}
-    						if (isset($value[$k+5]) && strpos($value[$k+5], '€') !== false) {
-								$currency='EUR';
-							}
-    						$price=preg_replace('/[^0-9\.]+/', '', $value[4]);
-    						$price=sprintf('%.06f', $price);
-    								
-    						$special=(isset($value[$k+6]) && strpos($values[$k+6], '*') !== false);
-    						
-    						$complete[]=array(
-    							'Code'=>$value[0],
-    							'Name'=>$value[2],
-    							'Price'=>$price,
-    							'DeclarationDate'=>date('Y-m-d', $declarationDate),
-    							'ExDivDate'=>date('Y-m-d', $exDivDate),
-    							'PaymentDate'=>date('Y-m-d', $paymentDate),
-    							'Currency'=>$currency,
-    							'Special'=>$special
-    						);
-    					
+	    						$currency='GBP';
+								if (isset($value[$k+5]) && strpos($value[$k+5], '$') !== false) {
+									$currency='USD';
+								}
+	    						if (isset($value[$k+5]) && strpos($value[$k+5], '€') !== false) {
+									$currency='EUR';
+								}
+	    						$price=preg_replace('/[^0-9\.]+/', '', $value[4]);
+	    						$price=sprintf('%.06f', $price);
+	    								
+	    						$special=(isset($value[$k+6]) && strpos($values[$k+6], '*') !== false);
+	    						
+	    						$complete[]=array(
+	    							'Code'=>$value[0],
+	    							'Name'=>$value[2],
+	    							'Price'=>$price,
+	    							'DeclarationDate'=>date('Y-m-d', $declarationDate),
+	    							'ExDivDate'=>date('Y-m-d', $exDivDate),
+	    							'PaymentDate'=>date('Y-m-d', $paymentDate),
+	    							'Currency'=>$currency,
+	    							'Special'=>$special
+	    						);
+							}    					
     					}
     						
     				}
@@ -3723,9 +3162,9 @@ class DefaultController extends Controller
 		}
 		
 		return $this->render('InvestShareBundle:Default:dividendlist.html.twig', array(
-				'data' => $complete,
-				'message' => $message,
-				'debug_message' => $debug_message
+			'data'			=> $complete,
+			'message'		=> $message,
+			'debug_message'	=> $debug_message
 		));
 	}
     
@@ -3882,9 +3321,9 @@ class DefaultController extends Controller
 		
 		
 		return $this->render('InvestShareBundle:Default:directordeals.html.twig', array(
-				'deals'		=> $deals,
-				'message'	=> $message,
-				'notes'		=> $functions->getConfig('note_deals')
+			'deals'		=> $deals,
+			'message'	=> $message,
+			'notes'		=> $functions->getConfig('note_deals')
 		));
 	}
 	
@@ -4066,11 +3505,11 @@ class DefaultController extends Controller
     	$debug_message='';
     	$new_company=0;
     	$updated_prices=0;
-    	$updated_trades=0;
-		$completed=array();
+    	$updated_averages=0;
+    	$completed=array();
 		$data1=array();
 		$new_data=array();
-
+		
 		$em=$this->getDoctrine()->getManager();
 /*
  * check the last update time
@@ -4078,8 +3517,7 @@ class DefaultController extends Controller
 		$latestDate=new \DateTime("now");
 		$qb=$em->createQueryBuilder()
 			->select('MAX(sp.date) as date')
-			->from('InvestShareBundle:StockPrices', 'sp')
-			->groupBy('sp.code');
+			->from('InvestShareBundle:StockPrices', 'sp');
 		$results=$qb->getQuery()->getArrayResult();
 		$result=reset($results);
 		$latestDate=new \DateTime($result['date']);
@@ -4291,18 +3729,6 @@ class DefaultController extends Controller
 					    			$updated_prices++;
 					    		}
 					    		unset($StockPrices);
-/*					    		
-					    		$spw=$this->getDoctrine()
-					    			->getRepository('InvestShareBundle:StockPricesWrong')
-					    			->findOneBy(array(
-					    				'code'=>$value['Code']
-					    		));
-					    		 
-					    		if ($spw) {
-					    			$em->remove($spw);
-					    			$em->flush();
-					    		}
-*/
 				    		} else {
 /*
  * anyway the new data can be wrong, save into StockPricesWrong table
@@ -4353,79 +3779,82 @@ class DefaultController extends Controller
 				    			}
 				    		} else {
 /*
- * Update stock prices for all the trades where the same company
+ * Update the last price for all the existing company
 */
 			    				$company->setLastPrice($value['Price']);
-			    				$company->setLastPriceDate($d);
 			    				$company->setLastChange($value['Changes']);
 			    				$company->setList($value['List']);
-// error_log('company:'.$value['Code']);
-			    				$qb=$em->createQueryBuilder()
-				    				->select('AVG(sp.price) as averageDay')
-				    				->addSelect('DATE(sp.date) as day')
-				    				->from('InvestShareBundle:StockPrices', 'sp')
-				    				->where('sp.code=:code')
-				    				->andWhere('DATE(sp.date)<:date')
-				    				->groupBy('day')
-				    				->orderBy('day', 'DESC')
-				    				->setMaxResults(1)
-				    				->setParameter('code', $value['Code'])
-				    				->setParameter('date', $d->format('Y-m-d'));
-			    				$r=$qb->getQuery()->getArrayResult();
-			    				if ($r && count($r)) {
-			    					$r1=reset($r);
-			    					$company->setLastDayAveragePrice($r1['averageDay']);
-			    					$completed[$key]['lastDay']=$r1['averageDay'];
-			    					unset($r1);
-// error_log('day:'.print_r($r1, true));
+			    				// if the last price change is in the current day,
+			    				// no need to update last day/week/month average price
+			    				$lpd=$company->getLastPriceDate();
+			    				if ($lpd->format('Y-m-d')!=date('Y-m-d')) {
+				    				$qb=$em->createQueryBuilder()
+					    				->select('AVG(sp.price) as averageDay')
+					    				->addSelect('DATE(sp.date) as day')
+					    				->from('InvestShareBundle:StockPrices', 'sp')
+					    				->where('sp.code=:code')
+					    				->andWhere('DATE(sp.date)<:date')
+					    				->groupBy('day')
+					    				->orderBy('day', 'DESC')
+					    				->setMaxResults(1)
+					    				->setParameter('code', $value['Code'])
+					    				->setParameter('date', $d->format('Y-m-d'));
+				    				$r=$qb->getQuery()->getArrayResult();
+				    				if ($r && count($r)) {
+				    					$r1=reset($r);
+				    					$company->setLastDayAveragePrice($r1['averageDay']);
+//				    					$completed[$key]['lastDay']=$r1['averageDay'];
+										$updated_averages++;
+				    					unset($r1);
+				    				}
+				    				unset($r);
+				    				unset($qb);
+	
+				    				$d2=clone $d;
+				    				$d2->modify('-1 week');
+				    				$qb=$em->createQueryBuilder()
+					    				->select('AVG(sp.price) as averageWeek')
+					    				->addSelect('DATE(sp.date) as day')
+					    				->from('InvestShareBundle:StockPrices', 'sp')
+					    				->where('sp.code=:code')
+					    				->andWhere('DATE(sp.date)<:date1 AND DATE(sp.date)>=:date2')
+					    				->setParameter('code', $value['Code'])
+					    				->setParameter('date1', $d->format('Y-m-d'))
+				    					->setParameter('date2', $d2->format('Y-m-d'));
+				    				$r=$qb->getQuery()->getArrayResult();
+				    				if ($r && count($r)) {
+				    					$r1=reset($r);
+				    					$company->setLastWeekAveragePrice($r1['averageWeek']);
+//				    					$completed[$key]['lastWeek']=$r1['averageWeek'];
+				    					$updated_averages++;
+				    					unset($r1);
+				    				}
+				    				unset($r);
+				    				unset($qb);
+				    				 
+					    			$d3=clone $d;
+				    				$d3->modify('-1 month');
+				    				$qb=$em->createQueryBuilder()
+					    				->select('AVG(sp.price) as averageMonth')
+					    				->addSelect('DATE(sp.date) as day')
+					    				->from('InvestShareBundle:StockPrices', 'sp')
+					    				->where('sp.code=:code')
+					    				->andWhere('DATE(sp.date)<:date1 AND DATE(sp.date)>=:date2')
+					    				->setParameter('code', $value['Code'])
+					    				->setParameter('date1', $d->format('Y-m-d'))
+				    					->setParameter('date2', $d3->format('Y-m-d'));
+				    				$r=$qb->getQuery()->getArrayResult();
+				    				if ($r && count($r)) {
+				    					$r1=reset($r);
+				    					$company->setLastMonthAveragePrice($r1['averageMonth']);
+//				    					$completed[$key]['lastMonth']=$r1['averageMonth'];
+				    					$updated_averages++;
+				    					unset($r1);
+				    				}
+				    				unset($r);
+				    				unset($qb);
 			    				}
-			    				unset($r);
-			    				unset($qb);
-
-			    				$d2=clone $d;
-			    				$d2->modify('-1 week');
-			    				$qb=$em->createQueryBuilder()
-				    				->select('AVG(sp.price) as averageWeek')
-				    				->addSelect('DATE(sp.date) as day')
-				    				->from('InvestShareBundle:StockPrices', 'sp')
-				    				->where('sp.code=:code')
-				    				->andWhere('DATE(sp.date)<:date1 AND DATE(sp.date)>=:date2')
-				    				->setParameter('code', $value['Code'])
-				    				->setParameter('date1', $d->format('Y-m-d'))
-			    					->setParameter('date2', $d2->format('Y-m-d'));
-			    				$r=$qb->getQuery()->getArrayResult();
-			    				if ($r && count($r)) {
-			    					$r1=reset($r);
-			    					$company->setLastWeekAveragePrice($r1['averageWeek']);
-			    					$completed[$key]['lastWeek']=$r1['averageWeek'];
-			    					unset($r1);
-// error_log('week:'.print_r($r1, true));
-			    				}
-			    				unset($r);
-			    				unset($qb);
-			    				 
-				    			$d3=clone $d;
-			    				$d3->modify('-1 month');
-			    				$qb=$em->createQueryBuilder()
-				    				->select('AVG(sp.price) as averageMonth')
-				    				->addSelect('DATE(sp.date) as day')
-				    				->from('InvestShareBundle:StockPrices', 'sp')
-				    				->where('sp.code=:code')
-				    				->andWhere('DATE(sp.date)<:date1 AND DATE(sp.date)>=:date2')
-				    				->setParameter('code', $value['Code'])
-				    				->setParameter('date1', $d->format('Y-m-d'))
-			    					->setParameter('date2', $d3->format('Y-m-d'));
-			    				$r=$qb->getQuery()->getArrayResult();
-			    				if ($r && count($r)) {
-			    					$r1=reset($r);
-			    					$company->setLastMonthAveragePrice($r1['averageMonth']);
-			    					$completed[$key]['lastMonth']=$r1['averageMonth'];
-			    					unset($r1);
-// error_log('month:'.print_r($r1, true));
-			    				}
-			    				unset($r);
-			    				unset($qb);
-			    				 
+			    				$company->setLastPriceDate($d);
 			    				$em->flush();
 
 /*
@@ -4445,20 +3874,21 @@ class DefaultController extends Controller
     	if ($new_company) {
     		$message.='<br>Added '.$new_company.' new company';
     	}
-       	if ($updated_prices) {
-    		$message.='<br>Updated '.$updated_prices.' prices';
+	    if ($updated_averages) {
+    		$message.='<br>Updated '.$updated_averages.' averages';
     	}
-    	if ($updated_trades) {
-    		$message.='<br>Updated '.$updated_trades.' trades';
+    	if ($updated_prices) {
+    		$message.='<br>Updated '.$updated_prices.' prices';
     	}
     	if (count($msg)) {
     		$message.='<br>Possibly wrong data:<br>'.implode('<br>', $msg);
     	}
     	 
     	return $this->render('InvestShareBundle:Default:pricelist.html.twig', array(
-    		'data' => $completed,
-    		'refresh' => (($remains > 0)?($remains):($this->refresh_interval)),
-    		'message' => $message,
+    		'data'		=> $completed,
+    		'update'	=> true,
+    		'refresh'	=> (($remains > 0)?($remains):($this->refresh_interval)),
+    		'message'	=> $message,
     		'debug_message' => $debug_message
     	));
     }
@@ -4471,39 +3901,28 @@ class DefaultController extends Controller
     	$prices=array();
     	$codes=array();
 		$message='';
+		$ftseList=array(
+			'0'=>'All',
+			'\'FTSE100\',\'FTSE250\''=>'FTSE 100 & 250',
+			'\'FTSE100\''=>'FTSE 100',
+			'\'FTSE250\''=>'FTSE 250',
+			'\'FTSESmallCap\''=>'FTSE Small Cap'
+		);
+		
+		
     	$em=$this->getDoctrine()->getManager();
     	 
 /*
  * if form posted, use the selected timestamp to show the updated prices on that time
  */
-		$date=((isset($_POST['form']['date']))?($_POST['form']['date']):($date));
-		if (isset($_POST['form']['startDate'])) {
-			$startDate=\DateTime::createFromFormat('d/m/Y', $_POST['form']['startDate']);
-		} else {
-			$startDate=new \DateTime('-1 day');
-		}
+    	$startDate=new \DateTime('-1 day');
 		$startDate->setTime(0, 0, 0);
-		
-    	if (isset($_POST['form']['endDate'])) {
-			$endDate=\DateTime::createFromFormat('d/m/Y', $_POST['form']['endDate']);
-		} else {
-			$endDate=new \DateTime('now');
-		}
-		$endDate->setTime(0, 0, 0);
-		
-		$list=((isset($_POST['form']['list']))?($_POST['form']['list']):(0));
-		$sector=((isset($_POST['form']['sector']))?($_POST['form']['sector']):(0));
-		
-
-		$ftseList=array(
-				'0'=>'All',
-				'\'FTSE100\',\'FTSE250\''=>'FTSE 100 & 250',
-				'\'FTSE100\''=>'FTSE 100',
-				'\'FTSE250\''=>'FTSE 250',
-				'\'FTSESmallCap\''=>'FTSE Small Cap'
-		);
-		
-		
+    	$endDate=new \DateTime('now');
+		$endDate->setTime(23, 59, 59);
+    	$list=0;
+    	$sector=0;
+    	$availableDates=array();
+    	
 		$sectorList=array();
 		$qb=$em->createQueryBuilder()
 			->select('c.sector')
@@ -4518,6 +3937,45 @@ class DefaultController extends Controller
 			foreach ($results as $result) {
 				$sectorList[$result['sector']]=$result['sector'];
 			}
+		}
+
+		$qb=$em->createQueryBuilder()
+			->select('p.date')
+			->from('InvestShareBundle:StockPrices', 'p')
+			->groupBy('p.date')
+			->orderBy('p.date', 'DESC');
+		 
+		if (isset($startDate)) {
+			$qb->andWhere('p.date>=:startDate')
+				->setParameter('startDate', $startDate->format('Y-m-d H:i:s'));
+		}
+		if (isset($endDate)) {
+			$qb->andWhere('p.date<=:endDate')
+				->setParameter('endDate', $endDate->format('Y-m-d H:i:s'));
+		}
+		$results=$qb->getQuery()->getArrayResult();
+		foreach($results as $result) {
+			$availableDates[$result['date']->getTimestamp()]=$result['date']->format('d/m/Y H:i:s');
+		}
+		
+		$datesForm=$this->createForm(new PricelistSelectType($startDate, $endDate, $sector, $list, $sectorList, $ftseList, $availableDates, $em));
+		$datesForm->handleRequest($request);
+		if ($request->isMethod('POST')) {
+			$formData=$datesForm->getData();
+			
+			if (isset($formData['date'])) {
+				$date=$formData['date'];
+			}
+			if (isset($formData['startDate'])) {
+				$startDate=$formData['startDate'];
+				$startDate->setTime(0, 0, 0);
+			}
+			if (isset($formData['endDate'])) {
+				$endDate=$formData['endDate'];
+				$endDate->setTime(23, 59, 59);
+			}
+			$list=((isset($formData['list']))?($formData['list']):(0));
+			$sector=((isset($formData['sector']))?($formData['sector']):(0));
 		}
 		
 
@@ -4541,7 +3999,15 @@ class DefaultController extends Controller
     			->join('InvestShareBundle:StockPrices', 'p', 'WITH', 'c.code=p.code')
     			->where('p.date=:date')
     			->setParameter('date', date('Y-m-d H:i:s', $date));
-    		
+
+    		if (strlen($list)>1) {
+    			$qb->andWhere('c.list IN ('.$list.')');
+    		}
+    		if (strlen($sector)>1) {
+    			$qb->andWhere('c.sector=:sector')
+    				->setParameter('sector', $sector);
+    		}
+    			 
     		$prices1=$qb->getQuery()->getArrayResult();
   		
     		if (count($prices1)) {
@@ -4622,19 +4088,10 @@ class DefaultController extends Controller
  * create a form to select multiple companies to compare
  * and show them in a chart 
  */
-
-    	$fb=$this->createFormBuilder()
-    		->add('submit', 'submit', array(
-    				'label'=>'Compare'
-    		));
-    	
+		$allCompanies=array();
     	if (count($prices)) {
    			foreach ($codes as $result) {
-   				$c=str_replace('.', '_', $result);
-   				$fb->add($c, 'checkbox', array(
-					'label'=>$result,
-					'required'=>false
-   				));
+   				$allCompanies[]=array('code'=>$result);
     		}
     		
     	} else {
@@ -4645,23 +4102,10 @@ class DefaultController extends Controller
     			->orderBy('c.name', 'ASC');
     		
     		$allCompanies=$qb->getQuery()->getArrayResult();
-    		
-    		if (count($allCompanies)) {
-    			foreach ($allCompanies as $result) {
-    				$fb->add(str_replace('.', '_', $result['code']), 'checkbox', array(
-   						'label'=>$result['code'],
-    					'value'=>1,
-   						'required'=>false
-    				));
-    			}
-    		}
-    		
     	}
     	
-    	$form=$fb->getForm();
-    	 
+    	$form=$this->createForm(new CompanySelectType($allCompanies));
     	$form->handleRequest($request);
-    	 
     	if ($form->isSubmitted()) {
     		$formData=$form->getData();
 
@@ -4681,78 +4125,6 @@ class DefaultController extends Controller
  * create a list from the updates time and timestamps for a dropdown list
  */
     	
-    	$availableDates=array();
-    	$availableDates[0]='Show latest prices';
-    	 
-    	$qb=$em->createQueryBuilder()
-    		->select('p.date')
-    		->from('InvestShareBundle:StockPrices', 'p')
-    		->groupBy('p.date')
-    		->orderBy('p.date', 'DESC');
-    	
-    	if ($startDate) {
-    		$qb->andWhere('p.date>=\''.$startDate->format('Y-m-d H:i:s').'\'');
-    	}
-    	if ($endDate) {
-    		$qb->andWhere('p.date<=\''.$endDate->format('Y-m-d H:i:s').'\'');
-    	}
-    	$results=$qb->getQuery()->getArrayResult();
-    	foreach($results as $result) {
-    		$availableDates[$result['date']->getTimestamp()]=$result['date']->format('d/m/Y H:i:s');
-    	}
-
-		$datesForm=$this->createFormBuilder()
-	    	->add('date', 'choice', array(
-	    		'choices'=>$availableDates,
-	    		'label'=>'Available updates : ',
-			    'data'=>'',
-	    		'attr'=>array(
-	    			'style'=>'width: 150px'
-	    		)
-			))
-	    	->add('startDate', 'datetime', array(
-	    		'label'=>'Updated : ',
-			    'data'=>$startDate,
-		    	'widget'=>'single_text',
-   				'format'=>'dd/MM/yyyy',
-		    		'attr'=>array(
-		    			'class'=>'dateInput',
-		    			'size'=>10
-		    		)
-	    	))
-	    	->add('endDate', 'datetime', array(
-	    		'label'=>' - ',
-			    'data'=>$endDate,
-		    	'widget'=>'single_text',
-		    	'format'=>'dd/MM/yyyy',
-		    	'attr'=>array(
-		    		'class'=>'dateInput',
-		    		'size'=>10
-		    	)
-	    	))
-	    	->add('sector', 'choice', array(
-	    		'label'=>'Sector : ',
-	    		'choices'=>$sectorList,
-			    'data'=>$sector,
-		    	'attr'=>array(
-		    		'style'=>'width: 120px'
-		    	)
-	    	))
-	    	->add('list', 'choice', array(
-	    		'label'=>'List : ',
-	    		'choices'=>$ftseList,
-			    'data'=>$list,
-		    	'attr'=>array(
-		    		'style'=>'width: 120px'
-		    	)
-	    	))
-	    	->add('search', 'submit', array(
-				'label'=>'Select'
-			))
-		    ->getForm();
-			    	
-		$datesForm->handleRequest($request);
-
 		if ($export) {
 			
 			$response=$this->render('InvestShareBundle:Export:pricelist.csv.twig', array(
@@ -4770,6 +4142,7 @@ class DefaultController extends Controller
 				'form'		=> $form->createView(),
 	   			'data'		=> $prices,
 	   			'message'	=> $message,
+				'au'		=> (($date)?(false):(true)),
 	    		'notes'		=> $functions->getConfig('page_pricelist')
 	    	));
 			
@@ -4785,15 +4158,8 @@ class DefaultController extends Controller
     	$em=$this->getDoctrine()->getManager();
 
     	$company=str_replace('_', '.', $company);
+    	$company2=$company;
     	
-		$company2=((isset($_POST['form']['company']))?($_POST['form']['company']):($company));
-		
-		if ($company != $company2) {
-
-			return $this->redirect($this->generateUrl('invest_share_prices', array('company'=>$company2)));
-
-		}
-    	 
     	$message='';
     	$companies=array();
 
@@ -4808,23 +4174,20 @@ class DefaultController extends Controller
 		foreach($results as $result) {
     		$companies[$result['code']]=$result['name'].' ('.$result['list'].')';
 		}
-		$selectForm=$this->createFormBuilder()
-	    	->add('company', 'choice', array(
-	    		'choices'=>$companies,
-	    		'label'=>'Company : ',
-			    'data'=>$company,
-	    		'attr'=>array(
-	    			'style'=>'width: 200px'
-	    		)
-			))
-		    ->add('search', 'submit', array(
-				'label'=>'Select'
-			))
-		    ->getForm();
-			    	
-
+		
+		$selectForm=$this->createForm(new PricesCompanySelectType($company, $companies));
 		$selectForm->handleRequest($request);
-
+		if ($selectForm->isSubmitted()) {
+			$formData=$selectForm->getData();
+			$company2=((isset($formData['company']))?($formData['company']):($company));
+		}
+		
+		if ($company != $company2) {
+		
+			return $this->redirect($this->generateUrl('invest_share_prices', array('company'=>str_replace('.', '_', $company2))));
+		
+		}
+		
 		return $this->render('InvestShareBundle:Default:pricesgraph.html.twig', array(
     		'selectForm'	=> $selectForm->createView(),
     		'company'		=> $company,
@@ -4888,22 +4251,7 @@ class DefaultController extends Controller
 	    			}
 	    		}
 	    	}
-	    	
-	    	$fb=$this->createFormBuilder()
-	    		->setAction($this->generateUrl('invest_share_currency'))
-	    		->add('submit', 'submit', array(
-	    			'label'=>'Compare'
-	    		));
-	    		
-	    	foreach (array_keys($data) as $cur) {
-	    		$fb->add($cur, 'checkbox', array(
-	    			'label'=>$cur,
-	    			'required'=>false
-	    		));
-	    	}
-	    		
-	    	$form=$fb->getForm();
-
+	    	$form=$this->createForm(new CurrencySelectType($this->generateUrl('invest_share_currency'), array_keys($data)));
 	    	$form->handleRequest($this->getRequest());
 	    	
 	    	if ($form->isSubmitted()) {
@@ -4945,156 +4293,6 @@ class DefaultController extends Controller
     }
     
     
-    public function graphAction($selected, $startDate, $endDate) {
-/*
- * create graph for 1 or more company
- */
-		$message='';
-
-/*
- * start and end date
- */
-		$date1 = date_create_from_format('d/m/Y H:i:s', $startDate.' 00:00:00');
-		$date2 = date_create_from_format('d/m/Y H:i:s', $endDate.' 23:59:59');
-
-		$company='';
-		$prices=array();
-/*
- * create a time scale
- */
-		$em=$this->getDoctrine()->getManager();
-
-		if (is_array($selected)) {
-			$query=$em->createQuery('SELECT DISTINCT sp.date'.
-				' FROM InvestShareBundle:StockPrices sp'.
-				' WHERE sp.code IN (\''.implode('\',\'', $selected).'\')'.
-					' AND sp.date BETWEEN \''.$date1->format('Y-m-d H:i:s').'\' AND \''.$date2->format('Y-m-d H:i:s').'\'');
-			$dates=$query->getResult();
-		} else {
-			$dates=array();
-		}
-/*
- * fetch all the values between selected dates
- */		
-		if (is_array($selected)) {
-			$query=$em->createQuery('SELECT sp'.
-				' FROM InvestShareBundle:StockPrices sp'.
-				' WHERE'.
-					' sp.code IN (\''.implode('\',\'', $selected).'\')'.
-					' AND sp.date BETWEEN \''.$date1->format('Y-m-d H:i:s').'\' AND \''.$date2->format('Y-m-d H:i:s').'\''.
-				' ORDER BY sp.date ASC');
-			$results=$query->getResult();
-		} else {
-			$results=array();
-		}
-		
-        if (count($results)) {
-        	foreach ($results as $result) {
-        		
-        		$prices[$result->getCode()][$result->getDate()->format('Y-m-d H:i:s')]=array(
-        			'Date'    => $result->getDate()->format('Y-m-d H:i:s'),
-        			'Price'   => $result->getPrice(),
-        			'Changes' => $result->getChanges(),
-    				'DateFields'=>array(
-    					'Y'=>$result->getDate()->format('Y'),
-    					'm'=>$result->getDate()->format('m'),
-    					'd'=>$result->getDate()->format('d'),
-    					'H'=>$result->getDate()->format('H'),
-    					'i'=>$result->getDate()->format('i'),
-    					's'=>$result->getDate()->format('s')
-    				),
-        			'New'     => 0
-        		);
-        	}
-/*
- *  each data field should have the same index,
- *  so if missing, create with average of the neighbours' value
- */        	
-        	foreach ($prices as $key=>$value) {
-        		foreach ($dates as $date) {
-        			if (!isset($value[$date['date']->format('Y-m-d H:i:s')])) {
-        				$prices[$key][$date['date']->format('Y-m-d H:i:s')]=array(
-        					'Date'=>$date['date']->format('Y-m-d H:i:s'),
-        					'Price'=>-999999,
-        					'Changes'=>-999999,
-        					'DateFields'=>array('Y'=>0, 'm'=>0, 'd'=>0, 'H'=>0, 'i'=>0, 's'=>0),
-        					'New'=>1
-        				);
-        			}
-        		}
-        		ksort($prices[$key]);
-        		
-        		$temp=$prices[$key];
-        		
-        		foreach ($temp as $k=>$v) {
-        			if ($v['New']) {
-
-        				reset($prices[$key]);
-        				$first_idx=key($prices[$key]);
-/*
- * Looking for the first not inserted value
- */ 
-        				while ($prices[$key][$first_idx]['New']) {
-        					next($prices[$key]);
-        					$first_idx=key($prices[$key]);
-        				}
-        				reset($prices[$key]);
-						while (key($prices[$key]) !== null && key($prices[$key]) !== $k) {
-        					next($prices[$key]);
-        				}
-
-        				if (key($prices[$key]) == null) {
-/*
- * If this is the first and already inserted,
- * should replace the value with the first available, not inserted value
- */ 
-        					$prev_val=$prices[$key][$first_idx];
-        					$next_val=$prices[$key][$first_idx];
-        				} else {
-        					$prev_val=prev($prices[$key]);
-        					$next_val=next($prices[$key]);
-/*
- * If the next value still new, go the the first available, not inserted value
- */ 
-        					while ($next_val['New']) {
-        						$next_val=next($prices[$key]);
-        					}
-        					
-        				}
-/*
- * Insert the average of the previous and next value
- */ 
-        				$prices[$key][$k]['Price']=(($prev_val['Price'] + $next_val['Price'])/2);
-        				$prices[$key][$k]['Changes']=(($prev_val['Changes'] + $next_val['Changes'])/2);
-        				$prices[$key][$k]['DateFields']=array(
-    						'Y'=>date('Y', strtotime($k)),
-    						'm'=>date('m', strtotime($k)),
-    						'd'=>date('d', strtotime($k)),
-    						'H'=>date('H', strtotime($k)),
-    						'i'=>date('i', strtotime($k)),
-    						's'=>date('s', strtotime($k))
-    					);
-
-        			}
-        		}
-        	}
-        }
-        if (is_object($dates)) {
-        	$dates->free(true);
-        }
-		if (is_object($results)) {
-        	$results->free(true);
-		}
-        
-    	return $this->render('InvestShareBundle:Default:prices.html.twig', array(
-   			'companyEPIC'	=> $company,
-   			'data'			=> $prices,
-    		'showData'		=> false,
-   			'message'		=> $message
-    	));
-    }
-
-    
     public function tradeuploadAction() {
 
     	$message='';
@@ -5116,21 +4314,12 @@ class DefaultController extends Controller
     	$fileData=array();
     	$msg=array();
     	    	
-    	$uploadForm=$this->createFormBuilder()
-	    	->add('file', 'file', array(
-	    		'label'=>'Select a file'
-			   ))
-			->add('upload', 'submit', array(
-				'label'=>'Upload'
-			))
-		    ->getForm();
-			    	
+    	$uploadForm=$this->createForm(new TradeUploadType());
 		$uploadForm->handleRequest($request);
 		
 		if ($uploadForm->isSubmitted() && $uploadForm->isValid() && ($request->getMethod() == 'POST')) {
 			
 			$data=$uploadForm->getData();
-			
 			if ($data['file']->move('./files/', 'uploaded.csv')) {
 				$f=fopen('./files/uploaded.csv', 'r');
 				$fileOK=false;
@@ -5513,7 +4702,7 @@ class DefaultController extends Controller
     	$XML=@simplexml_load_file('http://'.$url.'/rss.xml');
     
     	if ($XML !== false) {
-    		$updated=new \Datetime($XML->channel->lastBuildDate);
+    		$updated=new \DateTime($XML->channel->lastBuildDate);
     			
     		foreach ($XML->channel->item as $v) {
     			if (count($v) == 6) {

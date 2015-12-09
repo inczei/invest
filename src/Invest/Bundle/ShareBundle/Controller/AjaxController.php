@@ -386,4 +386,51 @@ class AjaxController extends Controller
 			return $this->redirect($this->generateUrl('invest_share_homepage'), 302);
 		}
     }
+    
+    public function updatesAction() {
+   
+    	$request=$this->getRequest();
+    	if ($request->isXmlHttpRequest()) {
+    		$data=array();
+    		$codes=$request->get('codes');
+			if ($codes && count($codes)) {
+				$em=$this->getDoctrine()->getManager();
+				$qb=$em->createQueryBuilder()
+					->select('c.code')
+					->addSelect('c.lastPrice')
+					->addSelect('c.lastChange')
+					->addSelect('c.lastPriceDate')
+					->from('InvestShareBundle:Company', 'c')
+					->where('c.code IN (:codes)')
+					->setParameter('codes', $codes);
+
+				$results=$qb->getQuery()->getArrayResult();
+				if ($results && count($results)) {
+					foreach ($results as $result) {
+						$class='';
+						if ($result['lastPriceDate'] != null && $result['lastPriceDate']->getTimestamp() >= time()-15*60) {
+							$class='updatedRecently';
+						}
+						if ($result['lastPriceDate'] != null && $result['lastPriceDate']->getTimestamp() < time()-8*60*60) {
+							$class='updatedLong';
+						}
+						$data[$result['code']]=array(
+							'price'=>number_format($result['lastPrice'], 2),
+							'change'=>(($result['lastChange']>0)?('+'):('')).number_format($result['lastChange'], 2),
+							'changep'=>(($result['lastChange']>0)?('+'):('')).number_format((($result['lastPrice'])?($result['lastChange']/$result['lastPrice']*100):(0)), 2),
+							'updated'=>((is_null($result['lastPriceDate']))?(null):($result['lastPriceDate']->format('d/m/Y H:i'))),
+							'class'=>$class
+						);
+					}
+				}
+			}
+    		
+    		
+	    	return new JsonResponse($data);
+		} else {
+			error_log('not ajax request...');
+				
+			return $this->redirect($this->generateUrl('invest_share_homepage'), 302);
+    	}
+    }
 }

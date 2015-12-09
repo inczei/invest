@@ -36,9 +36,11 @@
 		<th>Price</th>
 		<th colspan="2">Change</th>
 		<th>Updated (UTC)</th>
+{% if update is not defined %}		
 		<th colspan="3">Last Day Average</th>
 		<th colspan="3">Last Week Average</th>
 		<th colspan="3">Last Month Average</th>
+{% endif %}
 		{% if f==1 %}<th></th>{% endif %}	
 	</tr>
 	{% for d in data %}
@@ -56,10 +58,11 @@
 		<td>{{ d.Name }}</td>
 		<td>{% if d.Sector is defined %}{{ d.Sector }}{% endif %}</td>
 		<td>{% if d.List is defined %}{{ d.List }}{% endif %}</td>
-		<td align="right"{% if d.newPrice is defined and d.newPrice>0 %} class="updatedPrice"{% endif %}>{{ d.Price|number_format(2) }}</td>
-		<td align="right"><span class="{% if d.Changes == 0 %}notChanged{% else %}{% if d.Changes > 0 %}changedUp{% else %}changedDown{% endif %}{% endif %}">{{ d.Changes|number_format(2) }}</span></td>
-		<td align="right"><span class="{% if d.Changes == 0 %}notChanged{% else %}{% if d.Changes > 0 %}changedUp{% else %}changedDown{% endif %}{% endif %}">{% if d.Price==0 %}0{% else %}{{ (d.Changes/d.Price*100)|number_format(2) }}{% endif %} %</span></td>
-		<td{% if d.Class is defined and d.Class|length %} class="{{ d.Class }}"{% endif %}>{{ d.Date|date('d/m/Y H:i') }}</td>
+		<td id="au_{{ d.Code }}_price" align="right" class="{% if d.newPrice is defined and d.newPrice>0 %}updatedPrice{% else %}{% endif %}">{{ d.Price|number_format(2) }}</td>
+		<td id="au_{{ d.Code }}_change" align="right" class="{% if d.Changes == 0 %}notChanged{% else %}{% if d.Changes > 0 %}changedUp{% else %}changedDown{% endif %}{% endif %}">{% if d.Changes>0 %}+{% endif %}{{ d.Changes|number_format(2) }}</td>
+		<td id="au_{{ d.Code }}_changep" align="right" class="{% if d.Changes == 0 %}notChanged{% else %}{% if d.Changes > 0 %}changedUp{% else %}changedDown{% endif %}{% endif %}">{% if d.Price==0 %}0{% else %}{% if d.Changes>0 %}+{% endif %}{{ (d.Changes/d.Price*100)|number_format(2) }}{% endif %} %</td>
+		<td id="au_{{ d.Code }}_updated" class="{% if d.Class is defined and d.Class|length %}{{ d.Class }}{% endif %}">{{ d.Date|date('d/m/Y H:i') }}</td>
+{% if update is not defined %}		
 		<td align="right">{% if d.lastDay is defined and d.lastDay != 0 %}{{ d.lastDay|number_format(2) }}{% endif %}</td>
 		<td align="right">{% if d.lastDay is defined and d.lastDay != 0 %}<span class="{% if d.Price == d.lastDay %}notChanged{% else %}{% if d.Price > d.lastDay %}changedUp{% else %}changedDown{% endif %}{% endif %}">{% if (d.Price-d.lastDay) > 0 %}+{% endif %}{{ (d.Price-d.lastDay)|number_format(2) }}</span>{% endif %}</td>
 		<td align="right">{% if d.lastDay is defined and d.lastDay != 0 %}<span class="{% if d.Price == d.lastDay %}notChanged{% else %}{% if d.Price > d.lastDay %}changedUp{% else %}changedDown{% endif %}{% endif %}">{% if (d.Price-d.lastDay) > 0 %}+{% endif %}{% if (d.Price-d.lastDay) < 0 %}-{% endif %}{% if d.Price==0 %}0{% else %}{{ (((d.Price-d.lastDay)|abs)/d.Price*100)|number_format(2) }}{% endif %} %</span>{% endif %}</td>
@@ -69,6 +72,7 @@
 		<td align="right">{% if d.lastMonth is defined and d.lastMonth != 0 %}{{ d.lastMonth|number_format(2) }}{% endif %}</td>
 		<td align="right">{% if d.lastMonth is defined and d.lastMonth != 0 %}<span class="{% if d.Price == d.lastMonth %}notChanged{% else %}{% if d.Price > d.lastMonth %}changedUp{% else %}changedDown{% endif %}{% endif %}">{% if (d.Price-d.lastMonth) > 0 %}+{% endif %}{{ (d.Price-d.lastMonth)|number_format(2) }}</span>{% endif %}</td>
 		<td align="right">{% if d.lastMonth is defined and d.lastMonth != 0 %}<span class="{% if d.Price == d.lastMonth %}notChanged{% else %}{% if d.Price > d.lastMonth %}changedUp{% else %}changedDown{% endif %}{% endif %}">{% if (d.Price-d.lastMonth) > 0 %}+{% endif %}{% if (d.Price-d.lastMonth) < 0 %}-{% endif %}{% if d.Price==0 %}0{% else %}{{ (((d.Price-d.lastMonth)|abs)/d.Price*100)|number_format(2) }}{% endif %} %</span>{% endif %}</td>
+{% endif %}
 		{% if f==1 %}<td>{{ form_widget(form[d.Code|replace({'.': '_'})]) }}</td>{% endif %}
 	</tr>
 	{% endfor %}
@@ -87,5 +91,14 @@
 {% if notes is defined and notes|length %}
 <hr>
 <div class="notes">{{ notes|nl2br }}<div>
+{% endif %}
+{% endblock %}
+{% block additional_js %}
+{% if au is defined and au==true %}
+<script type="text/javascript">
+setInterval(function() {
+	ajaxUpdatePrices('{{ path('ajax_share_updates') }}');
+}, 30000);
+</script>
 {% endif %}
 {% endblock %}

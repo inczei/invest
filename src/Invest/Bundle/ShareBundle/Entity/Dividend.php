@@ -82,6 +82,11 @@ class Dividend
     private $paymentRate = null;
     
     
+    public function __construct()
+    {
+    	$this->createdDate = new \DateTime();
+    }
+    
     /**
      * Set id
      *

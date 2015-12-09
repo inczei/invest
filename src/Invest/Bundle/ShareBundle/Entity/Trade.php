@@ -57,7 +57,19 @@ class Trade
      */
     private $pERatio = NULL;
 
+    /**
+     * @var \DateTime
+     *
+     * @ORM\Column(name="CreatedOn", type="datetime")
+     */
+    private $createdOn;
+    
 
+    public function __construct()
+    {
+    	$this->createdOn = new \DateTime();
+    }
+    
     
     /**
      * Set Id
@@ -197,4 +209,28 @@ class Trade
     {
         return $this->sold;
     }
+    
+    /**
+     * Set createdOn
+     *
+     * @param \DateTime $createdOn
+     * @return Trade
+     */
+    public function setCreatedOn($createdOn)
+    {
+    	$this->createdOn = $createdOn;
+    
+    	return $this;
+    }
+    
+    /**
+     * Get createdOn
+     *
+     * @return \DateTime
+     */
+    public function getCreatedOn()
+    {
+    	return $this->createdOn;
+    }
+    
 }

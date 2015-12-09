@@ -14,10 +14,10 @@
 <table>
 	{% for k,n in notes %}
 	<tr>
-		<th>{{ k|upper }}</th>
+		<th>{{ form_label(form['page_'~k]) }}</th>
 	</tr>
 	<tr>
-		<td><textarea name="page_{{ k }}" cols="80" rows="10">{{ n }}</textarea></td>
+		<td>{{ form_widget(form['page_'~k]) }}</td>
 	</tr>
 	{% endfor %}
 	<tr>

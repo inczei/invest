@@ -7,9 +7,6 @@
 
 namespace Invest\Bundle\ShareBundle\Service;
 
-use Symfony\Bundle\FrameworkBundle\Controller\Controller;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\Request;
 use Invest\Bundle\ShareBundle\Entity\Config;
 use Invest\Bundle\ShareBundle\Entity\Company;
 use Invest\Bundle\ShareBundle\Entity\Diary;
@@ -19,18 +16,10 @@ use Invest\Bundle\ShareBundle\Entity\DirectorsDeals;
 use Invest\Bundle\ShareBundle\Entity\Dividend;
 use Invest\Bundle\ShareBundle\Entity\Portfolio;
 use Invest\Bundle\ShareBundle\Entity\PortfolioTransaction;
-use Invest\Bundle\ShareBundle\Entity\Transaction;
-use Invest\Bundle\ShareBundle\Entity\StockPrices;
-use Invest\Bundle\ShareBundle\Entity\StockPricesWrong;
 use Invest\Bundle\ShareBundle\Entity\Summary;
 use Invest\Bundle\ShareBundle\Entity\Currency;
-use Symfony\Component\Validator\Validator;
 use Invest\Bundle\ShareBundle\InvestShareBundle;
-use Symfony\Component\Serializer\Encoder\JsonEncode;
-use Symfony\Component\HttpFoundation\JsonResponse;
-use Ps\PdfBundle\Annotation\Pdf;
 use Symfony\Component\DependencyInjection\ContainerAware;
-use Doctrine\ORM\EntityManager;
 
 class Functions extends ContainerAware
 {
@@ -212,7 +201,7 @@ class Functions extends ContainerAware
     			$summary->setUnusedBasicRateBand(($BasicRate/$data['Family'])-$data['ActualDividendIncome']);
     			$summary->setFamily($data['Family']);
     			 
-    			$summary->setUpdatedOn(new \Datetime('now'));
+    			$summary->setUpdatedOn(new \DateTime('now'));
     			
     			if ($new) {
     				$this->em->persist($summary);
@@ -441,7 +430,7 @@ class Functions extends ContainerAware
     		->orderBy('tt.tradeId');
     	
     	if ($searchSector) {
-    		$qb->andWhere('c.Sector=:sector')
+    		$qb->andWhere('c.sector=:sector')
     			->setParameter('sector', $searchSector);
     	}
     	if ($searchCompany) {
@@ -522,15 +511,15 @@ class Functions extends ContainerAware
     					if ($c['tradeId'] == $t['tradeId']) {
 
     						$tmpBuyTrades[]=array(
-    								'tradeId'=>$c['tradeId'],
-    								'type'=>0,
-    								'settleDate'=>$c['settleDate1'],
-    								'tradeDate'=>$c['tradeDate1'],
-    								'reference'=>$c['reference1'],
-    								'description'=>'',
-    								'unitPrice'=>$c['unitPrice1'],
-    								'quantity'=>$c['quantity1'],
-    								'cost'=>$c['cost1']
+   								'tradeId'=>$c['tradeId'],
+   								'type'=>0,
+   								'settleDate'=>$c['settleDate1'],
+   								'tradeDate'=>$c['tradeDate1'],
+   								'reference'=>$c['reference1'],
+   								'description'=>'',
+   								'unitPrice'=>$c['unitPrice1'],
+   								'quantity'=>$c['quantity1'],
+   								'cost'=>$c['cost1']
     						);
     					}
     				}
@@ -909,7 +898,6 @@ class Functions extends ContainerAware
     	if (!$dd) {
     		$dd=new DirectorsDeals();
     		
-    		$dd->setCreatedOn(new \DateTime('now'));
     		$dd->setCode($data['code']);
     		$dd->setName($data['name']);
     		$dd->setDeclDate($data['declDate']);
@@ -950,7 +938,6 @@ class Functions extends ContainerAware
 	    	if (!$fd) {
 	    		$fd=new Diary();
 	    
-	    		$fd->setCreatedOn(new \DateTime('now'));
 	    		$fd->setCode($data['Code']);
 	    		$fd->setName($data['Name']);
 	    		$fd->setDate($data['Date']);
