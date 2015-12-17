@@ -1,41 +1,56 @@
 security:
-#    encoders:
+    encoders:
+        FOS\UserBundle\Model\UserInterface: sha512
 #        Invest\Bundle\ShareBundle\Entity\User:
 #            algorithm:        sha1
 #            encode_as_base64: false
 #            iterations:       1
 
     role_hierarchy:
-        ROLE_ADMIN:       ROLE_USER
-        ROLE_SUPER_ADMIN: [ROLE_USER, ROLE_ADMIN, ROLE_ALLOWED_TO_SWITCH]
+        ROLE_MANAGER:     ROLE_USER
+        ROLE_ADMIN:       ROLE_MANAGER
+        ROLE_SUPER_ADMIN: ROLE_ADMIN
 
     providers:
+        fos_userbundle:
+            id: fos_user.user_provider.username
+            
 #        main:
 #            entity:
 #                class: Invest\Bundle\ShareBundle\Entity\User
 #                property: username
-        in_memory:
-            memory:
-                users:
-                    user:  { password: userpass, roles: [ 'ROLE_USER' ] }
-                    admin: { password: adminpass, roles: [ 'ROLE_ADMIN' ] }
+#        in_memory:
+#            memory:
+#                users:
+#                    user:  { password: userpass, roles: [ 'ROLE_USER' ] }
+#                    admin: { password: adminpass, roles: [ 'ROLE_ADMIN' ] }
 
     firewalls:
         dev:
             pattern:  ^/(_(profiler|wdt)|css|images|js)/
             security: false
 
-        secured_area:
-            pattern:    ^/
+        main:
+            pattern: ^/
             form_login:
-                check_path: login_check
-                login_path: login
+                provider: fos_userbundle
+                csrf_provider: form.csrf_provider
             logout:
-                path:   /logout
-                target: /
-            anonymous: ~
-            #http_basic:
-            #    realm: "Secured Demo Area"
+                path: fos_user_security_logout
+                target: invest_share_homepage
+            anonymous: true
+            
+#        secured_area:
+#            pattern:    ^/
+#            form_login:
+#                check_path: login_check
+#                login_path: login
+#            logout:
+#                path:   /logout
+#                target: /
+#            anonymous: ~
+#            #http_basic:
+#            #    realm: "Secured Demo Area"
 
     access_control:
-        - { path: ^/secure_area, roles: ROLE_USER }
+        - { path: ^/users, roles: ROLE_ADMIN }

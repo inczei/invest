@@ -1,0 +1,80 @@
+{% set menu=showmenu %}
+{% extends 'InvestShareBundle:Default:base.html.twig' %}
+{% block content %}
+{% if menu is defined and menu==true %}
+<br><br><hr>
+{% endif %}
+{% for flashMessage in app.session.flashbag.get('notice') %}
+    <span class="message">Message : <b>{{ flashMessage }}</b></span>
+{% endfor %}
+{% if message is defined and message|length %}
+<span class="message">Message : <b>{{ message }}</b></span>
+{% endif %}
+{% if form is defined and form|length %}
+{{ form_start(form) }}
+{{ form_errors(form) }}
+<div class="listType">
+<table>
+	<tr>
+		<td>{{ form_label(form.username) }}{{ form_errors(form.username) }}</td><td>{{ form_widget(form.username) }}</td>
+	</tr>
+	<tr>
+		<td>{{ form_label(form.firstname) }}{{ form_errors(form.firstname) }}</td><td>{{ form_widget(form.firstname) }}</td>
+	</tr>
+	<tr>
+		<td>{{ form_label(form.lastname) }}{{ form_errors(form.lastname) }}</td><td>{{ form_widget(form.lastname) }}</td>
+	</tr>
+	<tr>
+		<td>{{ form_label(form.email) }}{{ form_errors(form.email) }}</td><td>{{ form_widget(form.email) }}</td>
+	</tr>
+	<tr>
+		<td>{{ form_label(form.role) }}{{ form_errors(form.role) }}</td><td>{{ form_widget(form.role) }}</td>
+	</tr>
+	<tr>
+		<td>{{ form_label(form.status) }}{{ form_errors(form.status) }}</td><td>{{ form_widget(form.status) }}</td>
+	</tr>
+	<tr>
+		<td>{{ form_label(form.password.first) }}{{ form_errors(form.password.first) }}</td><td>{{ form_widget(form.password.first) }}</td>
+	</tr>
+	<tr>
+		<td>{{ form_label(form.password.second) }}{{ form_errors(form.password.second) }}</td><td>{{ form_widget(form.password.second) }}</td>
+	</tr>
+</table>
+</div>
+{{ form_widget(form.id) }}
+{{ form_end(form) }}
+{% else %}
+<a href="{{ path('invest_share_users', {'action':'add', 'id': 0 }) }}">Add user</a><br>
+{% if users is defined and users|length %}
+<div class="listType">
+<table>
+	<tr>
+		<th>Username</th>
+		<th>First Name</th>
+		<th>Last Name</th>
+		<th>E-mail</th>
+		<th>Status</th>
+		<th>Role</th>
+		<th>Last Login</th>
+	</tr>
+	{% for u in users %}
+	<tr>
+		<td><a href="{{ path('invest_share_users', {'action':'edit', 'id': u.id }) }}">{{ u.username }}</a></td>
+		<td>{{ u.firstName }}</td>
+		<td>{{ u.lastName }}</td>
+		<td>{{ u.email }}</td>
+		<td>{% if u.enabled != 0 %}Active{% else %}Inactive{% endif %}</td>
+		<td>{% if u.roles is defined and u.roles|length %}{% for r in u.roles %}{% if roles[r] is defined %}{{ roles[r] }}{% else %}{{ r }}{% endif %}{% endfor %}{% else %}-{% endif %}</td>
+		<td>{% if u.lastLogin is null %} - {% else %}{{ u.lastLogin|date('d/m/Y H:i') }}{% endif %}</td>
+	</tr>
+	{% endfor %}
+</table>
+</div>
+{% else %}
+No data...
+	{% if debug_message is defined and debug_message|length %}
+<pre>{{ debug_message|raw }}</pre>
+	{% endif %}
+{% endif %}
+{% endif %}
+{% endblock %}

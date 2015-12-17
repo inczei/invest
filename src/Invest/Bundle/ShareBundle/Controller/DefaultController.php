@@ -31,6 +31,7 @@ use Invest\Bundle\ShareBundle\Entity\Currency;
 use Symfony\Component\Validator\Validator;
 use Invest\Bundle\ShareBundle\InvestShareBundle;
 use Ps\PdfBundle\Annotation\Pdf;
+use Invest\Bundle\ShareBundle\Form\Type\LoginType;
 use Invest\Bundle\ShareBundle\Form\Type\PricesCompanySelectType;
 use Invest\Bundle\ShareBundle\Form\Type\DividendSearchType;
 use Invest\Bundle\ShareBundle\Form\Type\CompanyType;
@@ -48,7 +49,11 @@ use Invest\Bundle\ShareBundle\Form\Type\CompanySelectType;
 use Invest\Bundle\ShareBundle\Form\Type\CurrencySelectType;
 use Invest\Bundle\ShareBundle\Form\Type\TradeSearchType;
 use Invest\Bundle\ShareBundle\Form\Type\NotesType;
-
+use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
+use Symfony\Component\Security\Http\Event\InteractiveLoginEvent;
+use FOS\UserBundle\Propel\User;
+use Invest\Bundle\ShareBundle\Form\Type\UserType;
+use Invest\Bundle\ShareBundle\Form\Type\ChangePasswordType;
 
 class DefaultController extends Controller
 {
@@ -81,25 +86,31 @@ class DefaultController extends Controller
 	
 	
     public function indexAction() {
+
+    	if (!$this->get("security.context")->isGranted('ROLE_USER')) {
+    		return $this->redirect($this->generateUrl('invest_share_login'));
+    	}
 /*
  * on the 1st page can see the summary of all investment
  */
-		$em=$this->getDoctrine()->getManager();
+		$currentUser=$this->getUser();
+    	$em=$this->getDoctrine()->getManager();
 		$functions=$this->get('invest.share.functions');
-		
 		$message='';
+		$graphs=array();
 		
-		if ($functions->updateSummary()) {
+		if ($functions->updateSummary($currentUser->getId())) {
 /*
  * Summary updated, at the moment nothing to do with this
  */
 		}
-
-		$graphs=array();
 		
 		$qb=$em->createQueryBuilder()
 			->select('s')
-			->from('InvestShareBundle:Summary', 's');
+			->from('InvestShareBundle:Summary', 's')
+			->where('s.userId=:uId')
+			->setParameter('uId', $currentUser->getId());
+		
 		$summary=$qb->getQuery()->getArrayResult();
 		
 		$overall=array(
@@ -131,15 +142,12 @@ class DefaultController extends Controller
 				$overall['Profit']+=$s['profit'];
 				$overall['DividendPaid']+=$s['dividendPaid'];
 				$overall['RealisedProfit']+=$s['realisedProfit'];
-				
 				$overall['CashIn']+=$s['cashIn'];
 				$overall['UnusedCash']+=$s['unusedCash'];
 				$overall['ActualDividendIncome']+=$s['actualDividendIncome'];
 				$overall['CgtProfitsRealised']+=$s['cgtProfitsRealised'];
 				$overall['UnusedBasicRateBand']+=$s['unusedBasicRateBand'];
-
 				$js=json_decode($s['currentValueBySector']);
-
 				foreach ($js as $pName=>$v1) {
 					foreach ($v1 as $k2=>$v2) {
 						$js1=array('name'=>$k2, 'value'=>$v2);
@@ -184,9 +192,207 @@ class DefaultController extends Controller
         ));
     }
 
+
+    public function loginAction() {
+    	 
+        if ($this->get("security.context")->isGranted('ROLE_USER')) {
+    		return $this->redirect($this->generateUrl('invest_share_homepage'));
+    	}
+    	$message='';
+    	$session = $this->get('session');
+    	$request=$this->getRequest();
+    	 
+    	$form=$this->createForm(new LoginType());
+    	$form->handleRequest($request);
+    
+    	if ($form->isSubmitted() && $form->isValid()) {
+    		$data=$form->getData();
+    
+    		$userManager = $this->container->get('fos_user.user_manager');
+    		$user=$userManager->findUserBy(array('username'=>$data['uname']));
+    
+    		if ($user) {
+    			if ($user->isEnabled()) {
+	    			$encoder_service = $this->get('security.encoder_factory');
+	    			$encoder = $encoder_service->getEncoder($user);
+	    
+	    			if ($encoder->isPasswordValid($user->getPassword(), trim($data['upass']), $user->getSalt())) {
+	    
+	    				$providerKey = $this->container->getParameter('fos_user.firewall_name');
+	    				$token = new UsernamePasswordToken($user, $data['upass'], $providerKey, $user->getRoles());
+	    				$this->get("security.context")->setToken($token);
+	    
+	    				// Fire the login event
+	    				$event = new InteractiveLoginEvent($this->getRequest(), $token);
+	    				$this->get("event_dispatcher")->dispatch("security.interactive_login", $event);
+	    
+	    				$message.='Password accepted';
+	    
+	    				$session->getFlashBag()->set('login', $message);
+	    
+	    				error_log($message);
+	    				return $this->redirect($this->generateUrl('invest_share_homepage'));
+	    
+	    			} else {
+	    				$message.='Wrong password for '.$data['uname'];
+	    			}
+    			} else {
+    				$message.='Inactive user:'.$data['uname'];
+    			}
+    		} else {
+    			$message.='Wrong username:'.$data['uname'];
+    		}
+    		error_log($message);
+    	}
+    	 
+    	return $this->render('InvestShareBundle:Default:login.html.twig', array(
+   			'form'	=> $form->createView(),
+   			'message'=> $message
+    	));
+    
+    }
+    
+
+    public function changepasswordAction() {
+	
+		if (!$this->get("security.context")->isGranted('ROLE_USER')) {
+			return $this->redirect($this->generateUrl('invest_share_login'));
+		}
+		
+		$message='';
+		$request=$this->getRequest();
+		$currentUser=$this->getUser();
+		$userManager = $this->container->get('fos_user.user_manager');
+		
+		$form=$this->createForm(new ChangePasswordType($currentUser));
+		$form->handleRequest($request);
+		
+		if ($form->isValid()) {
+			$data=$form->getData();
+			if ($data['password']) {
+				$currentUser->setPlainPassword($data['password']);
+			}
+			try {
+				$userManager->updateUser($currentUser);
+			} catch (\Exception $e) {
+				if (strpos($e->getMessage(), '1062') === false) {
+					error_log('Database error:'.$e->getMessage());
+				} else {
+					$message='Username already exists, please try another username';
+				}
+			}
+				
+			return $this->redirect($this->generateUrl('invest_share_homepage'));
+		}
+		
+		return $this->render('InvestShareBundle:Default:changepassword.html.twig', array(
+			'showmenu'	=> true,
+			'form'		=> ((isset($form))?($form->createView()):(null)),
+			'message'	=> $message
+		));
+		
+    }
+
+    
+    public function usersAction($action, $id) {
+	
+		if (!$this->get("security.context")->isGranted('ROLE_ADMIN')) {
+			return $this->redirect($this->generateUrl('invest_share_login'));
+		}
+		
+		$request=$this->getRequest();
+		$users=array();
+		
+    	$em=$this->getDoctrine()->getManager();
+    	$userManager = $this->container->get('fos_user.user_manager');
+		
+		$message='';
+		$roles=$this->getRoles();
+		
+		if ($action) {
+			switch ($action) {
+				case 'add' : {
+					$user=$userManager->createUser();
+					break;
+				}
+				case 'edit' : {
+					$user=$this->getDoctrine()
+						->getRepository('InvestShareBundle:User')
+						->findOneBy(array('id'=>$id));
+					break;
+				}
+			}
+			if (isset($user)) {
+				
+				$form=$this->createForm(new UserType($user, $roles));
+				$form->handleRequest($request);
+				
+				if ($form->isValid()) {
+					$data=$form->getData();
+					if ($data['password']) {
+						$user->setPlainPassword($data['password']);
+					}
+					$user->setUsername($data['username']);
+					$user->setFirstName($data['firstname']);
+					$user->setLastName($data['lastname']);
+					$user->setEmail($data['email']);
+					$user->setEnabled($data['status']);
+					$user->setRoles(array($data['role']));
+					try {
+						$userManager->updateUser($user);
+					} catch (\Exception $e) {
+						if (strpos($e->getMessage(), '1062') === false) {
+							error_log('Database error:'.$e->getMessage());
+						} else {
+							$message='Username already exists, please try another username';
+						}
+					}
+
+					if ($user->getId()) {
+						return $this->redirect($this->generateUrl('invest_share_users'));
+					}
+						
+				}
+			}
+		} else {
+			$qb=$em->createQueryBuilder()
+				->select('u.id')
+				->addSelect('u.username')
+				->addSelect('u.firstName')
+				->addSelect('u.lastName')
+				->addSelect('u.email')
+				->addSelect('u.enabled')
+				->addSelect('u.lastLogin')
+				->addSelect('u.roles')
+				->from('InvestShareBundle:User', 'u')
+				->orderBy('u.username');
+			
+			if ($id) {
+				$qb->andWhere('u.id=:uId')
+					->setParameter('uId', $id);
+			}
+			
+			$users=$qb->getQuery()->getArrayResult();
+		}
+
+		return $this->render('InvestShareBundle:Default:users.html.twig', array(
+			'showmenu'	=> true,
+			'form'		=> ((isset($form))?($form->createView()):(null)),
+			'users'		=> $users,
+			'roles'		=> $roles,
+			'message'	=> $message
+		));
+		
+    }
+    
     
     public function dividendAction() {
 
+    	if (!$this->get("security.context")->isGranted('ROLE_USER')) {
+    		return $this->redirect($this->generateUrl('invest_share_login'));
+    	}
+    	 
+    	$currentUser=$this->getUser();
     	$request=$this->getRequest();
     	
     	$message='';
@@ -287,7 +493,7 @@ class DefaultController extends Controller
 		}
 		
     	$companies=array();
-    	$tradeData=$functions->getTradesData(null, null, null, 0, null, null);
+    	$tradeData=$functions->getTradesData(null, null, null, 0, null, null, $currentUser->getId());
 
     	if (count($tradeData)) {
    			foreach ($tradeData as $td) {
@@ -361,6 +567,10 @@ class DefaultController extends Controller
     		->from('InvestShareBundle:Portfolio', 'p')
     		->where('p.name!=\'\'')
     		->orderBy('p.name', 'ASC');
+    	if ($currentUser->getId()) {
+    		$qb->andWhere('p.userId=:uId')
+    			->setParameter('uId', $currentUser->getId());
+    	}
     	$results=$qb->getQuery()->getArrayResult();
     	if (count($results)) {
     		foreach ($results as $result) {
@@ -653,6 +863,11 @@ class DefaultController extends Controller
     
     
     public function updateAction() {
+
+    	if (!$this->get("security.context")->isGranted('ROLE_ADMIN')) {
+    		return $this->redirect($this->generateUrl('invest_share_login'));
+    	}
+
 /*
  * show only the menu
  */
@@ -671,7 +886,6 @@ class DefaultController extends Controller
     	$message='';
 
     	$em=$this->getDoctrine()->getManager();
-    	
     	$qb=$em->createQueryBuilder()
     		->select('c.name')
     		->addSelect('c.value')
@@ -731,6 +945,11 @@ class DefaultController extends Controller
     
     
     public function companyAction($action, $id, $additional, Request $request) {
+
+    	if (!$this->get("security.context")->isGranted('ROLE_USER')) {
+    		return $this->redirect($this->generateUrl('invest_share_login'));
+    	}
+
 /*
  * add, delete and edit company details
  * add, delete and edit dividend based on company
@@ -746,12 +965,8 @@ class DefaultController extends Controller
     	$warnings=array();
     	$pageStart=0;
     	$lastPage=0;
-    	    	
     	$company=new Company();
     	$dividend=new Dividend();
-    	
-    	$em=$this->getDoctrine()->getManager();
-    	$functions=$this->get('invest.share.functions');
     	$searchCompanies=array();
     	$searchSectors=array();
     	$searchLists=array(
@@ -760,11 +975,12 @@ class DefaultController extends Controller
     		'FTSESmallCap'=>'FTSE Small Cap'
     	);
     	 
+    	$em=$this->getDoctrine()->getManager();
+    	$functions=$this->get('invest.share.functions');
+    	 
     	switch ($action) {
     		case 'page' : {
-    			
     			$pageStart=(int)$id;
-    			 
     			break;
     		}
     		case 'edit' : {
@@ -1347,6 +1563,12 @@ class DefaultController extends Controller
     
     public function ddealsAction() {
 
+    	if (!$this->get("security.context")->isGranted('ROLE_USER')) {
+    		return $this->redirect($this->generateUrl('invest_share_login'));
+    	}
+
+    	$currentUser=$this->getUser();
+    	$request=$this->getRequest();
     	$message='';
     	$deals=array();
     	$companyShares=array();
@@ -1355,7 +1577,6 @@ class DefaultController extends Controller
     	$summary=array();
     	$types=array();
     	$positions=array();
-
     	$searchType=null;
     	$searchDateFrom=new \DateTime('-1 month'); // new \DateTime(date('Y-m-d', mktime(0, 0, 0, date('m')-1, date('d'), date('Y'))));
    		$searchDateTo=new \DateTime('now'); // new \DateTime(date('Y-m-d', mktime(0, 0, 0, date('m'), date('d'), date('Y'))));
@@ -1364,7 +1585,6 @@ class DefaultController extends Controller
     	$searchPosition=null;
     	$searchFilter=1;
     	
-    	$request=$this->getRequest();
     	if (!$request->isMethod('POST') && null !== ($request->getSession()->get('is_ddeals'))) {
     		$data=$request->getSession()->get('is_ddeals');
     		$ok=true;
@@ -1426,7 +1646,7 @@ class DefaultController extends Controller
    			}
    		}
 
-   		$companyNames=$functions->getCompanyNames(($searchFilter)?(true):(false));
+   		$companyNames=$functions->getCompanyNames(($searchFilter)?(true):(false), $currentUser->getId());
    		
    		$searchForm=$this->createForm(new DealsSearchType($searchType, $types, $searchPosition, $positions, $searchCompany, $companyNames, $searchDateFrom, $searchDateTo, $searchLimit, $searchFilter));
     	$searchForm->handleRequest($request);
@@ -1472,7 +1692,7 @@ class DefaultController extends Controller
     		return $this->redirect($this->generateUrl('invest_share_ddeals')); 
     	}
     	 
-    	$trades=$functions->getTradesData(null, null, null, null, null, null);
+    	$trades=$functions->getTradesData(null, null, null, null, null, null, $currentUser->getId());
     	
        	if (count($trades)) {
 	   		foreach ($trades as $t) {
@@ -1559,6 +1779,7 @@ class DefaultController extends Controller
     	}
     	
     	return $this->render('InvestShareBundle:Default:directordeals.html.twig', array(
+    		'showmenu'		=> true,
     		'searchForm'	=> $searchForm->createView(),
     		'deals' 		=> $deals,
     		'summary'		=> $summary,
@@ -1570,17 +1791,21 @@ class DefaultController extends Controller
     
     
     public function diaryAction() {
-
+    	
+    	if (!$this->get("security.context")->isGranted('ROLE_USER')) {
+    		return $this->redirect($this->generateUrl('invest_share_login'));
+    	}
+    	 
+    	$currentUser=$this->getUser();
+    	$request=$this->getRequest();
     	$message='';
     	$diary=array();
-
     	$searchType=null;
     	$searchDateFrom=new \DateTime(date('Y-m-d', mktime(0, 0, 0, date('m'), date('d')-6, date('Y'))));
    		$searchDateTo=new \DateTime(date('Y-m-d', mktime(0, 0, 0, date('m'), date('d')+13, date('Y'))));
     	$searchCompany=null;
     	$searchFilter=null;
     	$em=$this->getDoctrine()->getManager();
-    	$request=$this->getRequest();
     	
     	if (!$request->isMethod('POST') && null !== ($request->getSession()->get('is_diary'))) {
     		$data=$request->getSession()->get('is_diary');
@@ -1630,7 +1855,7 @@ class DefaultController extends Controller
    			}
    		}
    		$functions=$this->get('invest.share.functions');
-   		$companies=$functions->getCompanyNames(($searchFilter)?(true):(false));
+   		$companies=$functions->getCompanyNames(($searchFilter)?(true):(false), $currentUser->getId());
    		 
    		$searchForm=$this->createForm(new DiarySearchType($searchType, $types, $searchCompany, $companies, $searchDateFrom, $searchDateTo, $searchFilter));
     	$searchForm->handleRequest($request);
@@ -1703,27 +1928,28 @@ class DefaultController extends Controller
     
     
     public function tradeAction($action, $id, $additional, $extra) {
+        
+    	if (!$this->get("security.context")->isGranted('ROLE_USER')) {
+    		return $this->redirect($this->generateUrl('invest_share_login'));
+    	}
+    	$currentUser=$this->getUser();
+    	$request=$this->getRequest();
 /*
  * add/edit/delete trade details
  */
     	
-    	$request=$this->getRequest();
     	$functions=$this->get('invest.share.functions');
-    	
 		$message='';
-		
 		$searchCompany=0;
 		$searchPortfolio=0;
 		$searchSector='';
 		$searchSold=0;
 		$searchDateFrom=null;
 		$searchDateTo=null;
-		
 		$show=false;
 		$showForm=1;
 		$formTitle='Trade Details';
 		$errors=array();
-
 		$trade=new Trade();
 		$tradeTransaction=new TradeTransactions();
 
@@ -1861,8 +2087,7 @@ class DefaultController extends Controller
 							'id'=>$id
 						)
 					);
-						
-				
+
 				$show=true;
 				$showForm=3;
 				$formTitle='Trade Sell Details';
@@ -1884,6 +2109,7 @@ class DefaultController extends Controller
 			->addSelect('c.sector')
 			->from('InvestShareBundle:Company', 'c')
 			->orderBy('c.name');
+
 		$results=$qb->getQuery()->getArrayResult();
 		
 		if (count($results)) {
@@ -1912,6 +2138,10 @@ class DefaultController extends Controller
 			->from('InvestShareBundle:Portfolio', 'p')
 			->orderBy('p.name');
 			
+		if ($currentUser->getId()) {
+			$qb2->andWhere('p.userId=:uId')
+				->setParameter('uId', $currentUser->getId());
+		}
 		$results=$qb2->getQuery()->getArrayResult();
 		
 		if (count($results)) {
@@ -2019,7 +2249,7 @@ class DefaultController extends Controller
 /*
  * 2nd form, only "Buy" details
  */
-					$form2=$this->createForm(new TradeDetailsType($trade, $tradeTransaction, $portfolios, $companies));
+					$form2=$this->createForm(new TradeDetailsType($trade, $tradeTransaction, $portfolios, $companies, 'buy'));
 			    	$form2->handleRequest($request);
 			    	
 			    	$validator=$this->get('validator');
@@ -2039,8 +2269,6 @@ class DefaultController extends Controller
 				   				$em->persist($trade);
 				   			}
 				   			$em->flush();
-				   			
-				   			
 				   			
 				   			$tradeTransaction->setType($form2->get('type')->getData());
 				   			$tradeTransaction->setTradeId($trade->getId());
@@ -2084,7 +2312,7 @@ class DefaultController extends Controller
  * 3rd form, only sell details
  */
 
-					$form3=$this->createForm(new TradeDetailsType($trade, $tradeTransaction, $portfolios, $companies));
+					$form3=$this->createForm(new TradeDetailsType($trade, $tradeTransaction, $portfolios, $companies, 'sell'));
 					$form3->handleRequest($request);
 					
 					$validator=$this->get('validator');
@@ -2098,11 +2326,8 @@ class DefaultController extends Controller
 
 							switch ($action) {
 			   					case 'addsell' : {
-
-					   				$em = $this->getDoctrine()->getManager();
 							    			
 					   				$tradeTransaction=new TradeTransactions();
-					   				
 					   				$tradeTransaction->setType($form3->get('type')->getData());
 					   				$tradeTransaction->setTradeId($form3->get('tradeId')->getData());
 			   						$tradeTransaction->setSettleDate($form3->get('settleDate')->getData());
@@ -2130,7 +2355,7 @@ class DefaultController extends Controller
 						    		$show=false;
 						    		break;
 				   				}
-							case 'editsell' : {
+								case 'editsell' : {
 
 			   						$NoOfDaysInvested=null;
 			   						
@@ -2140,8 +2365,6 @@ class DefaultController extends Controller
 			   							$NoOfDaysInvested=$date2->diff($date1)->format("%a");
 			   						}
 			   						
-					   				$em = $this->getDoctrine()->getManager();
-							    			
 			   						$tradeTransaction->setSettleDate($form3->get('settleDate')->getData());
 			   						$tradeTransaction->setTradeDate($form3->get('tradeDate')->getData());
 			   						$tradeTransaction->setQuantity($form3->get('quantity')->getData());
@@ -2149,7 +2372,6 @@ class DefaultController extends Controller
 			   						$tradeTransaction->setCost($form3->get('cost')->getData());
 			   						$tradeTransaction->setReference($form3->get('reference')->getData());
 			   						$tradeTransaction->setDescription($form3->get('description')->getData());
-
 			   						
 			   						$trade->setSellDate($form3->get('tradeDate')->getData());
 			   						$trade->setSellSettleDate($form3->get('settleDate')->getData());
@@ -2181,7 +2403,6 @@ class DefaultController extends Controller
 		}
 
 
-		
 		if (!$request->isMethod('POST') && null !== ($request->getSession()->get('is_trade'))) {
 			$data=$request->getSession()->get('is_trade');
 			$ok=true;
@@ -2225,7 +2446,7 @@ class DefaultController extends Controller
  */
 		$searchForm=$this->createForm(new TradeSearchType($this->generateUrl('invest_share_trade'), $companies, $searchCompany, $portfolios, $searchPortfolio, $sectors, $searchSector, $searchSold, $searchDateFrom, $searchDateTo));
 		$searchForm->handleRequest($request);
-		
+
 		if ($request->isMethod('POST')) {
 			$formData=$searchForm->getData();
 			if (isset($formData['company']) && $formData['company']) {
@@ -2329,8 +2550,8 @@ class DefaultController extends Controller
 			$searchFormView=$searchForm->createView();
 		}
 
-		$combined=$functions->getTradesData($searchPortfolio, $searchCompany, $searchSector, $searchSold, $searchDateFrom, $searchDateTo);
-
+		$combined=$functions->getTradesData($searchPortfolio, $searchCompany, $searchSector, $searchSold, $searchDateFrom, $searchDateTo, $currentUser->getId());
+		
 		if (in_array($searchSold, array(1,2)) && $searchDateFrom || $searchDateTo) {
 			foreach ($combined as $k=>$v) {			
 				if ($searchSold == 2) {
@@ -2361,7 +2582,7 @@ class DefaultController extends Controller
 		}
 		
 		$format = $this->get('request')->get('_format');
-		
+	
 		switch ($format) {
 			case 'pdf' : {
 				$facade = $this->get('ps_pdf.facade');
@@ -2403,10 +2624,11 @@ class DefaultController extends Controller
 			}
 			default : {
 				return $this->render('InvestShareBundle:Default:trade.html.twig', array(
+					'showmenu'		=> true,
 	    			'name'			=> 'Trade',
 	    			'message'		=> $message,
 					'errors'		=> $errors,
-					'form'			=> ($show?($formView):(null)),
+					'form'			=> ($show?$formView:null),
 					'showForm'		=> ($show?$showForm:null),
 					'searchForm'	=> ($show?null:$searchFormView),
 					'formTitle'		=> $formTitle,
@@ -2426,10 +2648,17 @@ class DefaultController extends Controller
 
     
     public function portfolioAction($action, $id, $additional, Request $request) {
+
+    	if (!$this->get("security.context")->isGranted('ROLE_USER')) {
+    		return $this->redirect($this->generateUrl('invest_share_login'));
+    	}
+    	
+
 /*
  * add/edit/delete portfolio details
  */
 
+    	$currentUser=$this->getUser();
     	$functions=$this->get('invest.share.functions');
     	$message='';
 		$showForm=1;
@@ -2437,12 +2666,11 @@ class DefaultController extends Controller
 		$formTitle='Portfolio Details';
 		$errors=array();
 		$searchPortfolio=null;
-
-		$em = $this->getDoctrine()->getManager();		
-		
 		$portfolio=new Portfolio();
 		$portfolioTransaction=new PortfolioTransaction();
 		
+		$em = $this->getDoctrine()->getManager();		
+
 		switch ($action) {
 			case 'list' : {
 				$searchPortfolio=$id;
@@ -2531,7 +2759,7 @@ class DefaultController extends Controller
 						array(
 							'id'=>$additional
 						)
-				)	;
+					);
 		
 				if ($portfolioTransaction) {
 
@@ -2565,7 +2793,7 @@ class DefaultController extends Controller
 						array(
 							'id'=>$id
 						)
-				);
+					);
 		
 				if ($portfolio) {
 
@@ -2578,7 +2806,7 @@ class DefaultController extends Controller
 							array(
 								'portfolioId'=>$id
 							)
-					);
+						);
 					if ($sm) {
 						foreach ($sm as $sm1) {
 							$em->remove($sm1);
@@ -2691,6 +2919,7 @@ class DefaultController extends Controller
 						    		$portfolio->setClientNumber($form->get('clientNumber')->getData());
 						    		$portfolio->setStartAmount(0);
 						    		$portfolio->setfamily($form->get('family')->getData());
+						    		$portfolio->setUserId($currentUser->getId());
 						    		
 						    		$em->persist($portfolio);
 						    		$em->flush();
@@ -2776,7 +3005,6 @@ class DefaultController extends Controller
 					   			if (!$portfolioTransaction) {
 					   				
 					   				$pt=new PortfolioTransaction();
-									
 					   				$pt->setPortfolioId($additional);
 					   				$pt->setDate($form2->get('date')->getData());
 						    		$pt->setAmount($form2->get('amount')->getData());
@@ -2842,7 +3070,7 @@ class DefaultController extends Controller
 /*
  * query for portfolio table with calculated values
  */
-    	$trades=$functions->getTradesData($searchPortfolio, null, null, null, null, null);
+    	$trades=$functions->getTradesData($searchPortfolio, null, null, null, null, null, $currentUser->getId());
     	$portfolios=array();
     	if (count($trades)) {
     		
@@ -2941,8 +3169,15 @@ class DefaultController extends Controller
     	$links[]=array('name'=>'Trade', 'url'=>$this->generateUrl('invest_share_trade', array('_format'=>'html')));
     	$links[]=array('name'=>'Pricelist', 'url'=>$this->generateUrl('invest_share_pricelist'));
     	$links[]=array('name'=>'Currency', 'url'=>$this->generateUrl('invest_share_currency'));
-    	$links[]=array('name'=>'Update', 'url'=>$this->generateUrl('invest_share_update'));
-    	 
+    	if ($this->get("security.context")->isGranted('ROLE_MANAGER')) {
+    		$links[]=array('name'=>'Update', 'url'=>$this->generateUrl('invest_share_update'));
+    	}
+    	if ($this->get("security.context")->isGranted('ROLE_ADMIN')) {
+    		$links[]=array('name'=>'Users', 'url'=>$this->generateUrl('invest_share_users'));
+    	} else {
+    		$links[]=array('name'=>'Password', 'url'=>$this->generateUrl('invest_share_changepassword'));
+    	}
+
 		return $this->render('InvestShareBundle:Default:menu.html.twig', array(
    			'links' => $links,
     	));
@@ -3162,6 +3397,7 @@ class DefaultController extends Controller
 		}
 		
 		return $this->render('InvestShareBundle:Default:dividendlist.html.twig', array(
+			'showmenu'		=> false,
 			'data'			=> $complete,
 			'message'		=> $message,
 			'debug_message'	=> $debug_message
@@ -3321,6 +3557,7 @@ class DefaultController extends Controller
 		
 		
 		return $this->render('InvestShareBundle:Default:directordeals.html.twig', array(
+			'showmenu'	=> false,
 			'deals'		=> $deals,
 			'message'	=> $message,
 			'notes'		=> $functions->getConfig('note_deals')
@@ -3460,14 +3697,13 @@ class DefaultController extends Controller
 		}
 		
 		
-		return $this->render('InvestShareBundle:Default:diarylist.html.twig',
-			array(
-				'links'		=> $links,
-				'diary'		=> $diary,
-				'message'	=> $message,
-				'notes'		=> $functions->getConfig('note_diary')
-			)
-		);
+		return $this->render('InvestShareBundle:Default:diarylist.html.twig', array(
+			'showmenu'	=> false,
+			'links'		=> $links,
+			'diary'		=> $diary,
+			'message'	=> $message,
+			'notes'		=> $functions->getConfig('note_diary')
+		));
 	}
 	
 	
@@ -3781,8 +4017,10 @@ class DefaultController extends Controller
 /*
  * Update the last price for all the existing company
 */
-			    				$company->setLastPrice($value['Price']);
-			    				$company->setLastChange($value['Changes']);
+				    			if ($ok) {
+			    					$company->setLastPrice($value['Price']);
+			    					$company->setLastChange($value['Changes']);
+				    			}
 			    				$company->setList($value['List']);
 			    				// if the last price change is in the current day,
 			    				// no need to update last day/week/month average price
@@ -3885,6 +4123,7 @@ class DefaultController extends Controller
     	}
     	 
     	return $this->render('InvestShareBundle:Default:pricelist.html.twig', array(
+    		'showmenu'	=> false,
     		'data'		=> $completed,
     		'update'	=> true,
     		'refresh'	=> (($remains > 0)?($remains):($this->refresh_interval)),
@@ -3896,11 +4135,16 @@ class DefaultController extends Controller
     
     public function pricelistAction($date, $export) {
 
+    	if (!$this->get("security.context")->isGranted('ROLE_USER')) {
+    		return $this->redirect($this->generateUrl('invest_share_login'));
+    	}
+
     	$functions=$this->get('invest.share.functions');
     	$request=$this->getRequest();
     	$prices=array();
     	$codes=array();
-		$message='';
+    	$sectorList=array();
+    	$availableDates=array();
 		$ftseList=array(
 			'0'=>'All',
 			'\'FTSE100\',\'FTSE250\''=>'FTSE 100 & 250',
@@ -3908,7 +4152,7 @@ class DefaultController extends Controller
 			'\'FTSE250\''=>'FTSE 250',
 			'\'FTSESmallCap\''=>'FTSE Small Cap'
 		);
-		
+		$message='';
 		
     	$em=$this->getDoctrine()->getManager();
     	 
@@ -3921,9 +4165,7 @@ class DefaultController extends Controller
 		$endDate->setTime(23, 59, 59);
     	$list=0;
     	$sector=0;
-    	$availableDates=array();
-    	
-		$sectorList=array();
+
 		$qb=$em->createQueryBuilder()
 			->select('c.sector')
 			->from('InvestShareBundle:Company', 'c')
@@ -4046,15 +4288,18 @@ class DefaultController extends Controller
     			->addSelect('c.lastMonthAveragePrice as lastMonth')
     			 
     			->from('InvestShareBundle:Company', 'c')
-    			->orderBy('c.name');
+    			->where('c.lastPrice>0')
+    			->andWhere('c.lastPriceDate>:date')
+    			->orderBy('c.name')
+    			->setParameter('date', date('Y-m-d H:i:s', strtotime('-1 month')));
     		
-    			if (strlen($list)>1) {
-    				$qb->andWhere('c.list IN ('.$list.')');
-    			}
-    			if (strlen($sector)>1) {
-    				$qb->andWhere('c.sector=:sector')
-    					->setParameter('sector', $sector);
-    			}
+    		if (strlen($list)>1) {
+    			$qb->andWhere('c.list IN ('.$list.')');
+    		}
+    		if (strlen($sector)>1) {
+    			$qb->andWhere('c.sector=:sector')
+    				->setParameter('sector', $sector);
+    		}
     		
     		$prices1=$qb->getQuery()->getArrayResult();
 
@@ -4093,9 +4338,7 @@ class DefaultController extends Controller
    			foreach ($codes as $result) {
    				$allCompanies[]=array('code'=>$result);
     		}
-    		
     	} else {
-
     		$qb=$em->createQueryBuilder()
     			->select('c.code')
     			->from('InvestShareBundle:Company', 'c')
@@ -4138,6 +4381,7 @@ class DefaultController extends Controller
 		} else {
 			
 			return $this->render('InvestShareBundle:Default:pricelist.html.twig', array(
+				'showmenu'	=> true,
 	   			'datesForm' => $datesForm->createView(),
 				'form'		=> $form->createView(),
 	   			'data'		=> $prices,
@@ -4151,6 +4395,11 @@ class DefaultController extends Controller
 
     
     public function pricesAction($company) {
+
+    	if (!$this->get("security.context")->isGranted('ROLE_USER')) {
+    		return $this->redirect($this->generateUrl('invest_share_login'));
+    	}
+
 /*
  * prices for 1 or more company with graph
  */
@@ -4189,6 +4438,7 @@ class DefaultController extends Controller
 		}
 		
 		return $this->render('InvestShareBundle:Default:pricesgraph.html.twig', array(
+			'showmenu'		=> true,
     		'selectForm'	=> $selectForm->createView(),
     		'company'		=> $company,
     		'message'		=> $message
@@ -4197,6 +4447,10 @@ class DefaultController extends Controller
     
     
     public function currencyAction($currency) {
+
+    	if (!$this->get("security.context")->isGranted('ROLE_USER')) {
+    		return $this->redirect($this->generateUrl('invest_share_login'));
+    	}
 
     	$limit=50;
     	$message='';
@@ -4274,6 +4528,7 @@ class DefaultController extends Controller
 	    	}
 	    	
 	    	return $this->render('InvestShareBundle:Default:currencylist.html.twig', array(
+	    		'showmenu'	=> true,
 	    		'data'		=> $data,
 	    		'form'		=> $form->createView(),
 	    		'dates'		=> $dates,
@@ -4285,6 +4540,7 @@ class DefaultController extends Controller
     	} else {
     	
 	    	return $this->render('InvestShareBundle:Default:currencygraph.html.twig', array(
+	    		'showmenu'	=> true,
 	    		'currency'	=> $currency,
 	   			'message'	=> $message,
 	    		'notes'		=> $functions->getConfig('page_currency')
@@ -4294,10 +4550,16 @@ class DefaultController extends Controller
     
     
     public function tradeuploadAction() {
-
-    	$message='';
     	
+    	if (!$this->get("security.context")->isGranted('ROLE_USER')) {
+    		return $this->redirect($this->generateUrl('invest_share_login'));
+    	}
+    	
+    	$fileData=array();
+    	$msg=array();
+    	$currentUser=$this->getUser();
     	$request=$this->getRequest();
+    	$message='';
     	
     	$companyRepo=$this->getDoctrine()
     		->getRepository('InvestShareBundle:Company');
@@ -4311,8 +4573,6 @@ class DefaultController extends Controller
     		->getRepository('InvestShareBundle:PortfolioTransaction');
 
     	$em=$this->getDoctrine()->getManager();
-    	$fileData=array();
-    	$msg=array();
     	    	
     	$uploadForm=$this->createForm(new TradeUploadType());
 		$uploadForm->handleRequest($request);
@@ -4500,6 +4760,7 @@ class DefaultController extends Controller
 										$portfolio->setName(($clientName)?($clientName):('pr'.$clientNumber));
 										$portfolio->setStartAmount(0);
 										$portfolio->setClientNumber($clientNumber);
+										$portfolio->setUserId($currentUser->getId());										
 										
 										$em->persist($portfolio);
 										$em->flush();
@@ -4561,6 +4822,7 @@ class DefaultController extends Controller
 								$portfolio->setName(($clientName)?($clientName):('pr'.$clientNumber));
 								$portfolio->setStartAmount(0);
 								$portfolio->setClientNumber($clientNumber);
+								$portfolio->setUserId($currentUser->getId());
 								
 								$em->persist($portfolio);
 								$em->flush();
@@ -4737,10 +4999,22 @@ class DefaultController extends Controller
     	}
     
     	return $this->render('InvestShareBundle:Default:currency.html.twig', array(
-    			'data' => $data,
-    			'message' => $message
+    		'showmenu'	=> false,
+    		'data' => $data,
+    		'message' => $message
     	));
     }
+
+    
+    public function getRoles() {
+    	$roles=array(
+			'ROLE_ADMIN'=>'Administrator',
+			'ROLE_MANAGER'=>'Manager',
+			'ROLE_USER'=>'User'
+    	);
+    	return $roles;
+    }
+    
     
     public static function divSort($a, $b) {
     	if ($a['name'] == $b['name']) {

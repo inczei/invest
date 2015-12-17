@@ -3,7 +3,6 @@
 namespace Invest\Bundle\ShareBundle\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
-use Doctrine\Common\Collections\ArrayCollection;
 
 /**
  * Portfolio
@@ -49,6 +48,26 @@ class Portfolio
      * @ORM\Column(name="Family", type="integer")
      */
     private $family = 1;
+    
+    /**
+     * @var integer
+     *
+     * @ORM\Column(name="userId", type="integer")
+     */
+    private $userId = null;
+    
+    /**
+     * @var \DateTime
+     *
+     * @ORM\Column(name="CreatedOn", type="datetime")
+     */
+    private $createdOn;
+    
+    
+    public function __construct()
+    {
+    	$this->createdOn = new \DateTime();
+    }
     
     
     /**
@@ -164,5 +183,51 @@ class Portfolio
     public function getFamily()
     {
         return $this->family;
+    }
+    
+    /**
+     * Set userId
+     *
+     * @param integer $userId
+     * @return Portfolio
+     */
+    public function setUserId($userId)
+    {
+        $this->userId = $userId;
+
+        return $this;
+    }
+
+    /**
+     * Get userId
+     *
+     * @return integer 
+     */
+    public function getUserId()
+    {
+        return $this->userId;
+    }
+
+    /**
+     * Set createdOn
+     *
+     * @param \DateTime $createdOn
+     * @return Portfolio
+     */
+    public function setCreatedOn($createdOn)
+    {
+        $this->createdOn = $createdOn;
+
+        return $this;
+    }
+
+    /**
+     * Get createdOn
+     *
+     * @return \DateTime 
+     */
+    public function getCreatedOn()
+    {
+        return $this->createdOn;
     }
 }

@@ -11,4 +11,6 @@ invest_share:
 #test_security:
 #    pattern: /secure_area
 #    defaults: { _controller: InvestShareBundle:Security:dumpString }
+fos_user:
+    resource: "@FOSUserBundle/Resources/config/routing/all.xml"
 

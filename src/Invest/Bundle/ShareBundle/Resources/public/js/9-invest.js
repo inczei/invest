@@ -184,9 +184,14 @@ function ajaxUpdatePrices(url) {
 					$('td#au_'+idx+'_updated').removeClass();
 					if (old != data[idx].price) {
 						var orig_color=$('td#au_'+idx+'_price').css('backgroundColor');
-						$('td#au_'+idx+'_price').html(data[idx].price).css('backgroundColor','#00c800').animate({'backgroundColor':orig_color}, 5000);
-						$('td#au_'+idx+'_change').html(data[idx].change).removeClass().css('backgroundColor','#00c800').animate({'backgroundColor':orig_color}, 5000);
-						$('td#au_'+idx+'_changep').html(data[idx].changep+' %').removeClass().css('backgroundColor','#00c800').animate({'backgroundColor':orig_color}, 5000);
+						if (data[idx].change > 0) {
+							var col='#0000c8';
+						} else {
+							var col='#c80000';
+						}
+						$('td#au_'+idx+'_price').html(data[idx].price).css('backgroundColor',col).animate({'backgroundColor':orig_color}, 10000);
+						$('td#au_'+idx+'_change').html(data[idx].change).removeClass().css('backgroundColor',col).animate({'backgroundColor':orig_color}, 10000);
+						$('td#au_'+idx+'_changep').html(data[idx].changep+' %').removeClass().css('backgroundColor',col).animate({'backgroundColor':orig_color}, 10000);
 						$('td#au_'+idx+'_updated').html(data[idx].updated);
 						if (data[idx].change == 0) {
 							$('td#au_'+idx+'_change').addClass('notChanged');

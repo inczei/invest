@@ -12,8 +12,10 @@
 {% endif %}
 </head>
 <body>
+{% if menu is defined and menu==true %}
 <div id="popupDiv" class="popupDiv"></div>
 {% render controller('InvestShareBundle:Default:menu') %}
+{% endif %}
 {% block content %}
 {% endblock %}
 {% block javascripts %}

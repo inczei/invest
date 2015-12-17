@@ -1,6 +1,9 @@
+{% set menu=showmenu %}
 {% extends 'InvestShareBundle:Default:base.html.twig' %}
 {% block content %}
+{% if menu is defined and menu==true %}
 <br><br><hr>
+{% endif %}
 {% if message is defined and message|length %}<br><span class="message">Message : <b>{{ message }}</b></span><br>{% endif %}
 {% if errors is defined and errors|length %}
 <ul>
@@ -87,6 +90,7 @@
 {% else %}
 No new director's deal...
 {% endif %}
+{% if menu is defined and menu==true %}
 <hr>
 <b>Transaction types:</b><br>
 BUY - Buy | SELL - Sell | EXR - Exercise | SEXR - Sale Post-Exercise | DRI - Dividend Reinvestment | DRIP - Dividend Reinvestment Plan | AWD - Award | TIN - Transfer In | TOUT - Transfer Out | LOF - In Lieu of Fees/Salary | SI - Script Issue | PLAC - Placing | RIS - Rights Issue
@@ -97,5 +101,6 @@ CEO - Chief Executive Officer | CH - Chairman | MD - Managing Director | FD - Fi
 {% if notes is defined and notes|length %}
 <hr>
 <div class="notes">{{ notes|nl2br }}<div>
+{% endif %}
 {% endif %}
 {% endblock %}

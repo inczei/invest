@@ -304,8 +304,9 @@ class AjaxController extends Controller
 			$value=0;
 
 			$functions=$this->get('invest.share.functions');
+			$user=$this->getUser();
 			
-			$trades=$functions->getTradesData($id, null, null, null);
+			$trades=$functions->getTradesData($id, null, null, null, null, null, $user->getId());
 			
 			if (count($trades)) {
 				$dates=array();
@@ -386,6 +387,7 @@ class AjaxController extends Controller
 			return $this->redirect($this->generateUrl('invest_share_homepage'), 302);
 		}
     }
+
     
     public function updatesAction() {
    

@@ -3,109 +3,43 @@
 namespace Invest\Bundle\ShareBundle\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
-use Symfony\Component\Security\Core\User\UserInterface;
-
+use FOS\UserBundle\Model\User as BaseUser;
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 /**
- * @ORM\Table(name="Users")
- * @ORM\Entity(repositoryClass="Invest\Bundle\ShareBundle\Entity\UserRepository")
+ * @ORM\Entity
+ * @ORM\Table(name="Users", uniqueConstraints={
+ * @ORM\UniqueConstraint(name="username_domain_idx", columns={"username"})})
+ * @ORM\AttributeOverrides({
+ *      @ORM\AttributeOverride(name="usernameCanonical", column=@ORM\Column(type="string", name="username_canonical", length=255, unique=false, nullable=false)),
+ *      @ORM\AttributeOverride(name="email", column=@ORM\Column(type="string", name="email", length=255, unique=false, nullable=true)),
+ *      @ORM\AttributeOverride(name="emailCanonical", column=@ORM\Column(type="string", name="email_canonical", length=255, unique=false, nullable=true))
+ * })
  */
-class User implements UserInterface, \Serializable
+class User extends BaseUser
 {
+	const ROLE_DEFAULT = '';
     /**
      * @ORM\Column(type="integer")
      * @ORM\Id
      * @ORM\GeneratedValue(strategy="AUTO")
      */
-    private $id;
+    protected $id;
 
     /**
-     * @ORM\Column(type="string", length=25, unique=true)
+     * @ORM\Column(type="string", length=50)
      */
-    private $username;
-
+    protected $firstName;
+    
     /**
-     * @ORM\Column(type="string", length=32)
+     * @ORM\Column(type="string", length=50)
      */
-    private $salt;
-
-    /**
-     * @ORM\Column(type="string", length=40)
-     */
-    private $password;
-
-    /**
-     * @ORM\Column(type="string", length=60, unique=true)
-     */
-    private $email;
-
-    /**
-     * @ORM\Column(name="is_active", type="boolean")
-     */
-    private $isActive;
+    protected $lastName;
+    
 
     public function __construct()
     {
-        $this->isActive = true;
-        $this->salt = md5(uniqid(null, true));
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getUsername()
-    {
-        return $this->username;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getSalt()
-    {
-        return $this->salt;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getPassword()
-    {
-        return $this->password;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getRoles()
-    {
-        return array('ROLE_USER');
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function eraseCredentials()
-    {
-    }
-
-    /**
-     * @see \Serializable::serialize()
-     */
-    public function serialize()
-    {
-        return serialize(array(
-            $this->id,
-        ));
-    }
-
-    /**
-     * @see \Serializable::unserialize()
-     */
-    public function unserialize($serialized)
-    {
-        list (
-            $this->id,
-        ) = unserialize($serialized);
+    	parent::__construct();
+    	$this->roles=array('ROLE_USER');
     }
 
     /**
@@ -117,89 +51,51 @@ class User implements UserInterface, \Serializable
     {
         return $this->id;
     }
-
+    
     /**
-     * Set username
+     * Set firstName
      *
-     * @param string $username
+     * @param string $firstName
      * @return User
      */
-    public function setUsername($username)
+    public function setFirstName($firstName)
     {
-        $this->username = $username;
+        $this->firstName = $firstName;
 
         return $this;
     }
 
     /**
-     * Set salt
-     *
-     * @param string $salt
-     * @return User
-     */
-    public function setSalt($salt)
-    {
-        $this->salt = $salt;
-
-        return $this;
-    }
-
-    /**
-     * Set password
-     *
-     * @param string $password
-     * @return User
-     */
-    public function setPassword($password)
-    {
-        $this->password = $password;
-
-        return $this;
-    }
-
-    /**
-     * Set email
-     *
-     * @param string $email
-     * @return User
-     */
-    public function setEmail($email)
-    {
-        $this->email = $email;
-
-        return $this;
-    }
-
-    /**
-     * Get email
+     * Get firstName
      *
      * @return string 
      */
-    public function getEmail()
+    public function getFirstName()
     {
-        return $this->email;
+        return $this->firstName;
     }
-
-    /**
-     * Set isActive
+    
+        /**
+     * Set lastName
      *
-     * @param boolean $isActive
+     * @param string $lastName
      * @return User
      */
-    public function setIsActive($isActive)
+    public function setLastName($lastName)
     {
-        $this->isActive = $isActive;
+        $this->lastName = $lastName;
 
         return $this;
     }
 
     /**
-     * Get isActive
+     * Get lastName
      *
-     * @return boolean 
+     * @return string 
      */
-    public function getIsActive()
+    public function getLastName()
     {
-        return $this->isActive;
+        return $this->lastName;
     }
+
 }

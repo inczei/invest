@@ -1,10 +1,13 @@
+{% set menu=showmenu %}
 {% extends 'InvestShareBundle:Default:base.html.twig' %}
 {% if refresh is defined %}
 	{% set pageRefresh=refresh %}
 {% else %}
 {% endif %}
 {% block content %}
+{% if menu is defined and menu==true %}
 <br><br><hr>
+{% endif %}
 {% if message is defined and message|length %}<span class="message">Message : <b>{{ message|raw }}</b></span><br>{% endif %}
 <br>
 {% if datesForm is defined and datesForm|length %}

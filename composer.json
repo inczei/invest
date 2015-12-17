@@ -14,7 +14,7 @@
 		"symfony/symfony" : "2.3.*",
 		"doctrine/orm" : "~2.2,>=2.2.3",
 		"doctrine/doctrine-bundle" : "1.2.*",
-		"twig/extensions" : "1.0.*",
+		"twig/extensions" : "*",
 		"symfony/assetic-bundle" : "2.3.*",
 		"symfony/swiftmailer-bundle" : "2.3.*",
 		"symfony/monolog-bundle" : "2.3.*",
@@ -24,6 +24,8 @@
 		"incenteev/composer-parameter-handler" : "~2.0",
 		"doctrine/doctrine-fixtures-bundle" : "dev-master",
 		"doctrine/data-fixtures" : "dev-master",
+		"friendsofsymfony/user-bundle": "~2.0@dev",
+		"propel/propel-bundle": "1.2.*",
 		"psliwa/pdf-bundle" : "dev-master",
 		"beberlei/DoctrineExtensions": "^1.0"
 	},

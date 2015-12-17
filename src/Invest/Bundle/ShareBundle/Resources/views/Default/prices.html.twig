@@ -1,13 +1,16 @@
+{% set menu=true %}
 {% extends 'InvestShareBundle:Default:base.html.twig' %}
 {% block content %}
+{% if menu is defined and menu==true %}
 <br><br><hr>
+{% endif %}
 {% for flashMessage in app.session.flashbag.get('notice') %}
     <span class="message">Message : <b>{{ flashMessage }}</b></span>
 {% endfor %}
 {% if message is defined and message|length %}
 <span class="message">Message : <b>{{ message }}</b></span>
 {% endif %}
-{% if selectForm is defined and selectForm|length %}
+{% if menu is defined and menu==true and selectForm is defined and selectForm|length %}
 {{ form_start(selectForm) }}
 <table>
 	<tr>
@@ -18,7 +21,7 @@
 {{ form_end(selectForm) }}
 <br>
 {% endif %}
-{% if data is defined and data|length %}
+{% if menu is defined and menu==true and data is defined and data|length %}
 {% if showData is defined and showData == true %}
 Click here to <span style="cursor: pointer; text-decoration: underline; color: #ff0000;" name="showhide" column="stockData">Show</span>  data<br>
 <span class="stockData" style="display: none">

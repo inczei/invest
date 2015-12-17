@@ -4,6 +4,9 @@ invest_share_homepage:
 invest_share_menu:
     path:     /menu
     defaults: { _controller: InvestShareBundle:Default:menu }
+invest_share_login:
+    path:     /login
+    defaults: { _controller: InvestShareBundle:Default:login }
 invest_share_company:
     path:     /company/{action}/{id}/{additional}
     defaults: { _controller: InvestShareBundle:Default:company, action: '', id: '', additional: '' }
@@ -34,6 +37,12 @@ invest_share_currency:
 invest_share_tradeupload:
     path:     /tradeupload
     defaults: { _controller: InvestShareBundle:Default:tradeupload }
+invest_share_users:
+    path:     /users/{action}/{id}
+    defaults: { _controller: InvestShareBundle:Default:users, action: '', id: '' }
+invest_share_changepassword:
+    path:     /changepassword
+    defaults: { _controller: InvestShareBundle:Default:changepassword }
 invest_share_update:
     path:     /update
     defaults: { _controller: InvestShareBundle:Default:update }

@@ -69,7 +69,7 @@ class Functions extends ContainerAware
     }
     
     
-    public function updateSummary() {
+    public function updateSummary($userId) {
     	
     	$currencyRates=$this->getCurrencyRates();
 /*
@@ -77,7 +77,9 @@ class Functions extends ContainerAware
  */     
     	$portfolios=$this->doctrine
     		->getRepository('InvestShareBundle:Portfolio')
-    		->findAll();
+    		->findBy(
+    			array('userId'=>$userId)		
+    		);
     	
     	if ($portfolios && count($portfolios)) {
 /*
@@ -118,7 +120,7 @@ class Functions extends ContainerAware
  * calculate the "PaidDividend"
  */
 
-    			$pData=$this->getTradesData($pId, null, null, null, null, null);
+    			$pData=$this->getTradesData($pId, null, null, null, null, null, $userId);
     			
 				$data=array(
 					'CurrentDividend'=>0,
@@ -200,6 +202,7 @@ class Functions extends ContainerAware
     			$summary->setUnusedCgtAllowance(($CgtAllowance/$data['Family'])-$data['CgtProfitsRealised']);
     			$summary->setUnusedBasicRateBand(($BasicRate/$data['Family'])-$data['ActualDividendIncome']);
     			$summary->setFamily($data['Family']);
+    			$summary->setUserId($userId);
     			 
     			$summary->setUpdatedOn(new \DateTime('now'));
     			
@@ -404,8 +407,8 @@ class Functions extends ContainerAware
 	}
 	
 	
-    public function getTradesData($searchPortfolio, $searchCompany, $searchSector, $searchSold) {
-
+    public function getTradesData($searchPortfolio, $searchCompany, $searchSector, $searchSold, $searchDateFrom, $searchDateTo, $userId) {
+    	
     	$combined=array();
     	$qb=$this->em->createQueryBuilder()
     		->select('tt.tradeId')
@@ -428,7 +431,11 @@ class Functions extends ContainerAware
     		->groupBy('tt.tradeId')
     		
     		->orderBy('tt.tradeId');
-    	
+
+    	if ($userId) {
+    		$qb->andWhere('p.userId=:uId')
+    			->setParameter('uId', $userId);
+    	}
     	if ($searchSector) {
     		$qb->andWhere('c.sector=:sector')
     			->setParameter('sector', $searchSector);
@@ -972,12 +979,12 @@ class Functions extends ContainerAware
     }
     
 
-    public function getCompanyNames($current) {
+    public function getCompanyNames($current, $userId) {
     	
     	$companies=array();
     	
     	if ($current) {
-    		$trades=$this->getTradesData(null, null, null, null, null, null);
+    		$trades=$this->getTradesData(null, null, null, null, null, null, $userId);
     	 
 	    	if (count($trades)) {
 	    		foreach ($trades as $t) {

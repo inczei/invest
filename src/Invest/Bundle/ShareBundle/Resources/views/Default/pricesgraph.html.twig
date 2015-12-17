@@ -1,6 +1,9 @@
+{% set menu=showmenu %}
 {% extends 'InvestShareBundle:Default:base.html.twig' %}
 {% block content %}
+{% if menu is defined and menu==true %}
 <br><br><hr>
+{% endif %}
 {% for flashMessage in app.session.flashbag.get('notice') %}
     <span class="message">Message : <b>{{ flashMessage }}</b></span>
 {% endfor %}

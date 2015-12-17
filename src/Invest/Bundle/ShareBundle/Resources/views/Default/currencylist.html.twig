@@ -1,6 +1,9 @@
+{% set menu=showmenu %}
 {% extends 'InvestShareBundle:Default:base.html.twig' %}
 {% block content %}
+{% if menu is defined and menu==true %}
 <br><br><hr>
+{% endif %}
 {% if message is defined and message|length %}<span class="message">Message : <b>{{ message|raw }}</b></span><br>{% endif %}
 <br>
 {% if data is defined and data|length %}

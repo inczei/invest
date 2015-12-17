@@ -1,0 +1,31 @@
+{% set menu=false %}
+{% extends 'InvestShareBundle:Default:base.html.twig' %}
+{% block content %}
+<div class="message">{% spaceless %}
+	{% if message is defined and message|length %}
+	<div class="loginMessage">{{ message }}</div>
+	{% endif %}
+{% endspaceless %}</div>
+{% if form is defined and form|length %}
+<div class="loginDiv">
+<h2>Please login</h2>
+{{ form_start(form) }}
+{{ form_errors(form) }}
+<table>
+	<tr>
+		<td>{{ form_label(form.uname) }}{{ form_errors(form.uname) }}</td>
+		<td>{{ form_widget(form.uname) }}</td>
+	</tr>
+	<tr>
+		<td>{{ form_label(form.upass) }}{{ form_errors(form.upass) }}</td>
+		<td>{{ form_widget(form.upass) }}</td>
+	</tr>
+	<tr>
+		<td colspan="2">{{ form_widget(form.submit) }}</td>
+	</tr>
+</table>
+{{ form_widget(form._token) }}
+{{ form_end(form) }}
+</div>
+{% endif %}
+{% endblock %}

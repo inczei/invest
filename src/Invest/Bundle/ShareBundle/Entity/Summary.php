@@ -146,6 +146,13 @@ class Summary
      * @ORM\Column(name="Family", type="integer")
      */
     private $family;
+
+    /**
+     * @var integer
+     *
+     * @ORM\Column(name="UserId", type="integer")
+     */
+    private $userId;
     
     
 
@@ -551,6 +558,29 @@ class Summary
     }
 
     /**
+     * Set userId
+     *
+     * @param integer $userId
+     * @return Summary
+     */
+    public function setUserId($userId)
+    {
+        $this->userId = $userId;
+
+        return $this;
+    }
+
+    /**
+     * Get userId
+     *
+     * @return integer
+     */
+    public function getUserId()
+    {
+        return $this->userId;
+    }
+    
+    /**
      * Set currentValueBySector
      *
      * @param text $currentValueBySector
@@ -572,4 +602,4 @@ class Summary
     {
         return $this->currentValueBySector;
     }
-    }
+}

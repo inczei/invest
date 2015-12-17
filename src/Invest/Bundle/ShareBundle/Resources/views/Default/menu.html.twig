@@ -3,5 +3,6 @@
 {% for l in links %}
 	<li><a href="{{ l.url }}"{% if l.target is defined %} target="{{ l.target }}"{% endif %}>{{ l.name }}</a></li>
 {% endfor %}
+	<li><a href="{{ path('fos_user_security_logout') }}">Logout</a></li>
 </ul>
 {% endif %}

@@ -94,3 +94,9 @@ ps_pdf:
     markdown_stylesheet_filepath: ~
     markdown_document_template_filepath: ~
     document_parser_type: ~
+
+fos_user:
+    db_driver: orm
+    firewall_name: main
+    user_class: Invest\Bundle\ShareBundle\Entity\User
+    

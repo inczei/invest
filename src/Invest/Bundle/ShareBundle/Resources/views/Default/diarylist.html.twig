@@ -1,6 +1,9 @@
+{% set menu=showmenu %}
 {% extends 'InvestShareBundle:Default:base.html.twig' %}
 {% block content %}
+{% if menu is defined and menu==true %}
 <br><br><hr>
+{% endif %}
 {% if message is defined and message|length %}<span class="message">Message : <b>{{ message }}</b></span><br>{% endif %}
 {% if errors is defined and errors|length %}
 <ul>
@@ -10,7 +13,7 @@
 </ul>
 {% endif %}
 <br>
-{% if links is defined and links|length %}
+{% if menu is defined and menu==true and links is defined and links|length %}
 {% for k,l in links %}
 {% if l.selected %}{{ l.date }}{% else %}<a href="{{ path('invest_share_updatediary') }}/{{ k }}">{{ l.date }}</a>{% endif %} | 
 {% endfor %}
