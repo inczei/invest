@@ -1575,15 +1575,17 @@ class DefaultController extends Controller
     	$companyNames=array();
     	$codes=array();
     	$summary=array();
+    	$volumeSummary=array();
     	$types=array();
     	$positions=array();
     	$searchType=null;
-    	$searchDateFrom=new \DateTime('-1 month'); // new \DateTime(date('Y-m-d', mktime(0, 0, 0, date('m')-1, date('d'), date('Y'))));
-   		$searchDateTo=new \DateTime('now'); // new \DateTime(date('Y-m-d', mktime(0, 0, 0, date('m'), date('d'), date('Y'))));
+    	$searchDateFrom=new \DateTime('-1 month');
+   		$searchDateTo=new \DateTime('now');
     	$searchLimit=$this->dealsLimit;
     	$searchCompany=null;
     	$searchPosition=null;
     	$searchFilter=1;
+    	$searchListType=0;
     	
     	if (!$request->isMethod('POST') && null !== ($request->getSession()->get('is_ddeals'))) {
     		$data=$request->getSession()->get('is_ddeals');
@@ -1620,11 +1622,16 @@ class DefaultController extends Controller
     			} else {
     				$searchFilter=0;
     			}
+				if (isset($data['lt'])) {
+    				$searchListType=$data['lt'];
+    			} else {
+    				$searchListType=0;
+    			}
     		} else {
     			$request->getSession()->remove('is_ddeals');
     		}
     	}
-    	
+
     	$functions=$this->get('invest.share.functions');
     	$em=$this->getDoctrine()->getManager();   		
    		$qb=$em->createQueryBuilder()
@@ -1648,10 +1655,10 @@ class DefaultController extends Controller
 
    		$companyNames=$functions->getCompanyNames(($searchFilter)?(true):(false), $currentUser->getId());
    		
-   		$searchForm=$this->createForm(new DealsSearchType($searchType, $types, $searchPosition, $positions, $searchCompany, $companyNames, $searchDateFrom, $searchDateTo, $searchLimit, $searchFilter));
+   		$searchForm=$this->createForm(new DealsSearchType($searchType, $types, $searchPosition, $positions, $searchCompany, $functions->getCompanyNames(false, $currentUser->getId()), $searchDateFrom, $searchDateTo, $searchLimit, $searchFilter, $searchListType));
     	$searchForm->handleRequest($request);
     	
-    	if ($request->isMethod('POST')) {
+    	if ($searchForm->isValid() && $request->isMethod('POST')) {
     		$formData=$searchForm->getData();
     		if (isset($formData['type']) && $formData['type']) {
     			$searchType=$formData['type'];
@@ -1678,6 +1685,11 @@ class DefaultController extends Controller
     		} else {
     			$searchFilter=0;
     		}
+    		if (isset($formData['listType'])) {
+    			$searchListType=$formData['listType'];
+    		} else {
+    			$searchListType=0;
+    		}
     		
     		$request->getSession()->set('is_ddeals', array(
    				't'=>$searchType,
@@ -1687,6 +1699,7 @@ class DefaultController extends Controller
    				'p'=>$searchPosition,
    				'l'=>$searchLimit,
    				'f'=>$searchFilter,
+    			'lt'=>$searchListType,
    				'updated'=>date('Y-m-d H:i:s')));
     		
     		return $this->redirect($this->generateUrl('invest_share_ddeals')); 
@@ -1762,18 +1775,48 @@ class DefaultController extends Controller
     		$results=$qb3->getQuery()->getArrayResult();
 
     		if ($results) {
-    			foreach ($results as $result) {
-    				$result['Company']=$companyNames[$result['code']];
-   					$result['CurrentShares']=((isset($companyShares[$result['code']]))?($companyShares[$result['code']]):(0));
-    				$result['CurrentValue']=$result['lastPrice'];
-    				
-    				$deals[]=$result;
-    				
-    				if (!isset($summary[$result['type']])) {
-    					$summary[$result['type']]=array('Shares'=>0, 'Value'=>0);
+    			if ($searchListType) {
+    				// Calculate summary based on sell/buy volume
+    				foreach ($results as $result) {
+    					if (in_array($result['type'], array('BUY', 'SELL'))) {
+	    					if (!isset($volumeSummary[$result['code']])) {
+	    						$volumeSummary[$result['code']]=array(
+	    							'BUY'=>0,
+	    							'BUY_SHARES'=>0,
+	    							'SELL'=>0,
+	    							'SELL_SHARES'=>0,
+//	    							'BALANCE'=>0,
+									'code'=>$result['code'],
+	    							'Company'=>$companyNames[$result['code']]
+	    						);
+	    					}
+	    					$volumeSummary[$result['code']][$result['type']]+=$result['value'];	    					
+	    					$volumeSummary[$result['code']][$result['type'].'_SHARES']+=$result['shares'];
+    					}
     				}
-    				$summary[$result['type']]['Shares']+=$result['shares'];
-    				$summary[$result['type']]['Value']+=$result['value'];
+    				if (count($volumeSummary)) {
+    					foreach ($volumeSummary as $k=>$vs) {
+    						$volumeSummary[$k]['BALANCE']=$vs['BUY']-$vs['SELL'];
+    						$volumeSummary[$k]['BALANCE_SHARES']=$vs['BUY_SHARES']-$vs['SELL_SHARES'];
+    					}
+    					usort($volumeSummary, 'self::vsSort');
+    				}
+    				
+    			} else {
+    				// Create a list from all the
+	    			foreach ($results as $result) {
+	    				$result['Company']=$companyNames[$result['code']];
+	   					$result['CurrentShares']=((isset($companyShares[$result['code']]))?($companyShares[$result['code']]):(0));
+	    				$result['CurrentValue']=$result['lastPrice'];
+	    				
+	    				$deals[]=$result;
+	    				
+	    				if (!isset($summary[$result['type']])) {
+	    					$summary[$result['type']]=array('Shares'=>0, 'Value'=>0);
+	    				}
+	    				$summary[$result['type']]['Shares']+=$result['shares'];
+	    				$summary[$result['type']]['Value']+=$result['value'];
+	    			}
     			}
     		}
     	}
@@ -1783,6 +1826,7 @@ class DefaultController extends Controller
     		'searchForm'	=> $searchForm->createView(),
     		'deals' 		=> $deals,
     		'summary'		=> $summary,
+    		'volumeSummary'	=> $volumeSummary,
     		'extra'			=> true,
     		'message' 		=> $message,
     		'notes'			=> $functions->getConfig('page_deals')    			 
@@ -3916,7 +3960,7 @@ class DefaultController extends Controller
  * If the previous similar as the new, delete the last and store the new,
  * anyway the new price should be wrong
  */
-				    					$value['Changes']=sprintf('%.4f', $value['Price']-$lp[0]->getPrice());
+				    					$value['Changes']=sprintf('%.4f', $value['Price']-((isset($lp[0]))?($lp[0]->getPrice()):(0)));
 				    					$completed[$key]['Changes']=$value['Changes'];
 				    					 
 				    					if ($value['Changes'] > 0) {
@@ -5043,4 +5087,11 @@ class DefaultController extends Controller
     	return ($a['exDivDate'] > $b['exDivDate'])?1:-1;
     }
     
+    public static function vsSort($a, $b) {
+    	if ($a['BALANCE'] == $b['BALANCE']) {
+  			return 0;
+    	}    	 
+    	return ($a['BALANCE'] < $b['BALANCE'])?1:-1;
+    }
+
 }

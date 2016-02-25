@@ -23,13 +23,36 @@
 		<td>{{ form_row(searchForm.dateTo) }}</td>
 		<td>{{ form_row(searchForm.limit) }}</td>
 		<td>{{ form_row(searchForm.filter) }}</td>
+		<td>{{ form_row(searchForm.listType) }}</td>
 		<td>{{ form_row(searchForm.search) }}</td>
 	</tr>
 </table>
+{{ form_widget(searchForm._token) }}
 {{ form_end(searchForm) }}
 <hr>
 {% endif %}
-{% if deals is defined and deals|length %}
+{% if volumeSummary is defined and volumeSummary|length %}
+<div class="listType">
+	<table>
+		<tr>
+			<th>EPIC</th>
+			<th>Company</th>
+			<th>BUY</th>
+			<th>SELL</th>
+			<th>BALANCE</th>
+		</tr>
+		{% for vs in volumeSummary %}
+		<tr>
+			<td align="center"><a href="{{ path('invest_share_prices') }}/{{ vs.code }}">{{ vs.code }}</a></td>
+			<td>{{ vs.Company }}</td>
+			<td align="right" title="Shares: {{ vs.BUY_SHARES|number_format(2) }}">{{ vs.BUY|number_format(2) }}</td>
+			<td align="right" title="Shares: {{ vs.SELL_SHARES|number_format(2) }}">{{ vs.SELL|number_format(2) }}</td>
+			<td align="right" title="Shares: {{ vs.BALANCE_SHARES|number_format(2) }}">{{ vs.BALANCE|number_format(2) }}</td>
+		</tr>
+		{% endfor %}
+	</table>
+</div>
+{% elseif deals is defined and deals|length %}
 <div class="listType">
 	<table>
 		<tr>

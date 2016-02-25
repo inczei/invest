@@ -16,11 +16,12 @@ class DealsSearchType extends AbstractType
 	private $searchDateTo;
 	private $searchLimit;
 	private $searchFilter;
+	private $searchListType;
 	private $types;
 	private $positions;
 	private $companies;
 	
-	public function __construct($searchType, $types, $searchPosition, $positions, $searchCompany, $companies, $searchDateFrom, $searchDateTo, $searchLimit, $searchFilter)
+	public function __construct($searchType, $types, $searchPosition, $positions, $searchCompany, $companies, $searchDateFrom, $searchDateTo, $searchLimit, $searchFilter, $searchListType)
 	{
 		$this->searchType = $searchType;
 		$this->types = $types;
@@ -32,6 +33,7 @@ class DealsSearchType extends AbstractType
 		$this->searchDateTo = $searchDateTo;
 		$this->searchLimit = $searchLimit;
 		$this->searchFilter = $searchFilter;
+		$this->searchListType = $searchListType;
 	}
 	
     public function buildForm(FormBuilderInterface $builder, array $options)
@@ -51,7 +53,7 @@ class DealsSearchType extends AbstractType
 				'empty_value'=>'All',
 				'data'=>$this->searchPosition,
 			    'attr'=>array(
-		    		'style'=>'width: 80px'
+		    		'style'=>'width: 60px'
 			    )
 			))
 			->add('company', 'choice', array(
@@ -105,7 +107,17 @@ class DealsSearchType extends AbstractType
 		    		'style'=>'width: 80px'
 			    )
 			))
-        	->add('search', 'submit', array(
+			->add('listType', 'choice', array(
+				'label'=>'List : ',
+				'choices'=>array('1'=>'Sales Volume'),
+				'data'=>$this->searchListType,
+				'required'=>false,
+				'empty_value'=>'Normal',
+			    'attr'=>array(
+		    		'style'=>'width: 120px'
+			    )
+			))
+			->add('search', 'submit', array(
     			'label'=>'Search',
     			'attr'=>array('class'=>'submitButton')
     		));
