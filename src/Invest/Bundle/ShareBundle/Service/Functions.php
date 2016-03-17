@@ -1031,5 +1031,25 @@ class Functions extends ContainerAware
     	
     	return $ret;
     }
+
+    public function getSectors() {
+    	 
+    	$ret=array();
+    	 
+    	$qb=$this->em->createQueryBuilder()
+    		->select('c.sector')
+    		->from('InvestShareBundle:Company', 'c')
+    		->where('c.sector!=\'\'')
+    		->groupBy('c.sector');
+    	$results=$qb->getQuery()->getArrayResult();
+    	 
+    	if ($results) {
+    		foreach ($results as $result) {
+    			$ret[$result['sector']]=$result['sector'];
+    		}
+    	}
+    	 
+    	return $ret;
+    }
     
 }

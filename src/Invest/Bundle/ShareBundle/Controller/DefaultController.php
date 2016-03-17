@@ -1584,6 +1584,7 @@ class DefaultController extends Controller
     	$searchLimit=$this->dealsLimit;
     	$searchCompany=null;
     	$searchPosition=null;
+    	$searchSector=null;
     	$searchFilter=1;
     	$searchListType=0;
     	
@@ -1627,6 +1628,11 @@ class DefaultController extends Controller
     			} else {
     				$searchListType=0;
     			}
+    			if (isset($data['s'])) {
+    				$searchSector=$data['s'];
+    			} else {
+    				$searchSector=0;
+    			}
     		} else {
     			$request->getSession()->remove('is_ddeals');
     		}
@@ -1654,8 +1660,9 @@ class DefaultController extends Controller
    		}
 
    		$companyNames=$functions->getCompanyNames(($searchFilter)?(true):(false), $currentUser->getId());
+   		$sectors=$functions->getSectors();
    		
-   		$searchForm=$this->createForm(new DealsSearchType($searchType, $types, $searchPosition, $positions, $searchCompany, $functions->getCompanyNames(false, $currentUser->getId()), $searchDateFrom, $searchDateTo, $searchLimit, $searchFilter, $searchListType));
+   		$searchForm=$this->createForm(new DealsSearchType($searchType, $types, $searchPosition, $positions, $searchCompany, $functions->getCompanyNames(false, $currentUser->getId()), $searchDateFrom, $searchDateTo, $searchLimit, $searchFilter, $searchListType, $searchSector, $sectors));
     	$searchForm->handleRequest($request);
     	
     	if ($searchForm->isValid() && $request->isMethod('POST')) {
@@ -1690,6 +1697,11 @@ class DefaultController extends Controller
     		} else {
     			$searchListType=0;
     		}
+    		if (isset($formData['sector'])) {
+    			$searchSector=$formData['sector'];
+    		} else {
+    			$searchSector='';
+    		}
     		
     		$request->getSession()->set('is_ddeals', array(
    				't'=>$searchType,
@@ -1700,6 +1712,7 @@ class DefaultController extends Controller
    				'l'=>$searchLimit,
    				'f'=>$searchFilter,
     			'lt'=>$searchListType,
+    			's'=>$searchSector,
    				'updated'=>date('Y-m-d H:i:s')));
     		
     		return $this->redirect($this->generateUrl('invest_share_ddeals')); 
@@ -1759,7 +1772,12 @@ class DefaultController extends Controller
     			->andWhere('dd.dealDate BETWEEN \''.$searchDateFrom->format('Y-m-d').'\' AND \''.$searchDateTo->format('Y-m-d').'\'')
     			->orderBy('dd.code', 'ASC')
     			->addOrderBy('dd.dealDate', 'ASC');
-    		
+
+    		if ($searchSector) {
+    			$qb3->andWhere('c.sector=:sector')
+    				->setParameter('sector', $searchSector);
+    		}
+    			
     		if ($searchType) {
     			$qb3->andWhere('dd.type=:type')
     				->setParameter('type', $searchType);
@@ -3927,7 +3945,7 @@ class DefaultController extends Controller
 				    	if ((!$result) || $result->getPrice() != $value['Price']) {
 
 							$ok=true;
-				    		if ($result) {
+				    		if ($result && count($result)) {
 /*
  * if we have already data, store the changes since last stored
  */								
@@ -3971,6 +3989,9 @@ class DefaultController extends Controller
 				    					 
 				    					if ($diff > ($this->maxChanges/100)) {
 				    						$ok=false;
+				    						if (isset($lp[0]) && round($lp[0]->getPrice()) == 0) {
+				    							$ok=true;
+				    						}
 				    					} else {
 				    						$msg[]='[remove previous wrong price for '.$value['Code'].'] ';
 				    					
