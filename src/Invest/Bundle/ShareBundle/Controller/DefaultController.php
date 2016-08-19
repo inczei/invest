@@ -1576,6 +1576,7 @@ class DefaultController extends Controller
     	$codes=array();
     	$summary=array();
     	$volumeSummary=array();
+    	$volumeSummary2=array();
     	$types=array();
     	$positions=array();
     	$searchType=null;
@@ -1765,6 +1766,7 @@ class DefaultController extends Controller
     			->addSelect('dd.position')
     			->addSelect('dd.price')
     			->addSelect('c.lastPrice')
+    			->addSelect('c.sector')
     			
     			->from('InvestShareBundle:DirectorsDeals', 'dd')
     			->leftJoin('InvestShareBundle:Company', 'c', 'WITH', 'dd.code=c.code')
@@ -1793,48 +1795,78 @@ class DefaultController extends Controller
     		$results=$qb3->getQuery()->getArrayResult();
 
     		if ($results) {
-    			if ($searchListType) {
-    				// Calculate summary based on sell/buy volume
-    				foreach ($results as $result) {
-    					if (in_array($result['type'], array('BUY', 'SELL'))) {
-	    					if (!isset($volumeSummary[$result['code']])) {
-	    						$volumeSummary[$result['code']]=array(
-	    							'BUY'=>0,
-	    							'BUY_SHARES'=>0,
-	    							'SELL'=>0,
-	    							'SELL_SHARES'=>0,
-//	    							'BALANCE'=>0,
-									'code'=>$result['code'],
-	    							'Company'=>$companyNames[$result['code']]
-	    						);
+    			switch ($searchListType) {
+    				case 1 : {
+	    				// Calculate summary based on sell/buy volume
+	    				foreach ($results as $result) {
+	    					if (in_array($result['type'], array('BUY', 'SELL'))) {
+		    					if (!isset($volumeSummary[$result['code']])) {
+		    						$volumeSummary[$result['code']]=array(
+		    							'BUY'=>0,
+		    							'BUY_SHARES'=>0,
+		    							'SELL'=>0,
+		    							'SELL_SHARES'=>0,
+	//	    							'BALANCE'=>0,
+										'code'=>$result['code'],
+		    							'Company'=>$companyNames[$result['code']]
+		    						);
+		    					}
+		    					$volumeSummary[$result['code']][$result['type']]+=$result['value'];	    					
+		    					$volumeSummary[$result['code']][$result['type'].'_SHARES']+=$result['shares'];
 	    					}
-	    					$volumeSummary[$result['code']][$result['type']]+=$result['value'];	    					
-	    					$volumeSummary[$result['code']][$result['type'].'_SHARES']+=$result['shares'];
-    					}
-    				}
-    				if (count($volumeSummary)) {
-    					foreach ($volumeSummary as $k=>$vs) {
-    						$volumeSummary[$k]['BALANCE']=$vs['BUY']-$vs['SELL'];
-    						$volumeSummary[$k]['BALANCE_SHARES']=$vs['BUY_SHARES']-$vs['SELL_SHARES'];
-    					}
-    					usort($volumeSummary, 'self::vsSort');
-    				}
-    				
-    			} else {
-    				// Create a list from all the
-	    			foreach ($results as $result) {
-	    				$result['Company']=$companyNames[$result['code']];
-	   					$result['CurrentShares']=((isset($companyShares[$result['code']]))?($companyShares[$result['code']]):(0));
-	    				$result['CurrentValue']=$result['lastPrice'];
-	    				
-	    				$deals[]=$result;
-	    				
-	    				if (!isset($summary[$result['type']])) {
-	    					$summary[$result['type']]=array('Shares'=>0, 'Value'=>0);
 	    				}
-	    				$summary[$result['type']]['Shares']+=$result['shares'];
-	    				$summary[$result['type']]['Value']+=$result['value'];
-	    			}
+	    				if (count($volumeSummary)) {
+	    					foreach ($volumeSummary as $k=>$vs) {
+	    						$volumeSummary[$k]['BALANCE']=$vs['BUY']-$vs['SELL'];
+	    						$volumeSummary[$k]['BALANCE_SHARES']=$vs['BUY_SHARES']-$vs['SELL_SHARES'];
+	    					}
+	    					usort($volumeSummary, 'self::vsSort');
+	    				}
+	    				break;
+    				}
+    			    case 2 : {
+	    				// Calculate summary based on sell/buy volume by sector
+	    				foreach ($results as $result) {
+	    					if (in_array($result['type'], array('BUY', 'SELL'))) {
+		    					if (!isset($volumeSummary2[$result['sector']])) {
+		    						$volumeSummary2[$result['sector']]=array(
+		    							'BUY'=>0,
+		    							'BUY_SHARES'=>0,
+		    							'SELL'=>0,
+		    							'SELL_SHARES'=>0,
+		    							'Sector'=>$result['sector']
+		    						);
+		    					}
+		    					$volumeSummary2[$result['sector']][$result['type']]+=$result['value'];	    					
+		    					$volumeSummary2[$result['sector']][$result['type'].'_SHARES']+=$result['shares'];
+	    					}
+	    				}
+	    				if (count($volumeSummary2)) {
+	    					foreach ($volumeSummary2 as $k=>$vs) {
+	    						$volumeSummary2[$k]['BALANCE']=$vs['BUY']-$vs['SELL'];
+	    						$volumeSummary2[$k]['BALANCE_SHARES']=$vs['BUY_SHARES']-$vs['SELL_SHARES'];
+	    					}
+	    					usort($volumeSummary2, 'self::vsSort');
+	    				}
+	    				break;
+    				}
+    				default : {
+	    				// Create a list from all the
+		    			foreach ($results as $result) {
+		    				$result['Company']=$companyNames[$result['code']];
+		   					$result['CurrentShares']=((isset($companyShares[$result['code']]))?($companyShares[$result['code']]):(0));
+		    				$result['CurrentValue']=$result['lastPrice'];
+		    				
+		    				$deals[]=$result;
+		    				
+		    				if (!isset($summary[$result['type']])) {
+		    					$summary[$result['type']]=array('Shares'=>0, 'Value'=>0);
+		    				}
+		    				$summary[$result['type']]['Shares']+=$result['shares'];
+		    				$summary[$result['type']]['Value']+=$result['value'];
+		    			}
+		    			break;
+    				}
     			}
     		}
     	}
@@ -1845,6 +1877,7 @@ class DefaultController extends Controller
     		'deals' 		=> $deals,
     		'summary'		=> $summary,
     		'volumeSummary'	=> $volumeSummary,
+    		'volumeSummary2'=> $volumeSummary2,
     		'extra'			=> true,
     		'message' 		=> $message,
     		'notes'			=> $functions->getConfig('page_deals')    			 

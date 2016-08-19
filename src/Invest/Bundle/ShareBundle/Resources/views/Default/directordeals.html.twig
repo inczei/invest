@@ -53,6 +53,25 @@
 		{% endfor %}
 	</table>
 </div>
+{% elseif volumeSummary2 is defined and volumeSummary2|length %}
+<div class="listType">
+	<table>
+		<tr>
+			<th>Sector</th>
+			<th>BUY</th>
+			<th>SELL</th>
+			<th>BALANCE</th>
+		</tr>
+		{% for vs in volumeSummary2 %}
+		<tr>
+			<td>{{ vs.Sector }}</td>
+			<td align="right" title="Shares: {{ vs.BUY_SHARES|number_format(2) }}">{{ vs.BUY|number_format(2) }}</td>
+			<td align="right" title="Shares: {{ vs.SELL_SHARES|number_format(2) }}">{{ vs.SELL|number_format(2) }}</td>
+			<td align="right" title="Shares: {{ vs.BALANCE_SHARES|number_format(2) }}">{{ vs.BALANCE|number_format(2) }}</td>
+		</tr>
+		{% endfor %}
+	</table>
+</div>
 {% elseif deals is defined and deals|length %}
 <div class="listType">
 	<table>

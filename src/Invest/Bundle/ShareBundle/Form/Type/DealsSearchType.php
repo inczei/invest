@@ -123,7 +123,7 @@ class DealsSearchType extends AbstractType
 			))
 			->add('listType', 'choice', array(
 				'label'=>'List : ',
-				'choices'=>array('1'=>'Sales Volume'),
+				'choices'=>array('1'=>'Sales Volume', '2'=>'Sector Volume'),
 				'data'=>$this->searchListType,
 				'required'=>false,
 				'empty_value'=>'Normal',
